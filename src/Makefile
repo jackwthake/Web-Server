@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Wextra
 
-OBJS=server.o net.o http.o
+OBJS=server.o net.o http.o file.o
 
 all: ../server
 
@@ -10,7 +10,9 @@ all: ../server
 
 net.o: net.c net.h
 
-http.o: http.c http.h
+file.o: file.c file.h
+
+http.o: http.c http.h file.h
 
 server.o: server.c net.h http.h
 

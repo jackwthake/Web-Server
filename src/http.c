@@ -1,19 +1,24 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#define MAX_METHOD_LENGTH 8 // enough for 7 characters
-#define MAX_PATH_LENGTH 65 // enough for 64 characters
-#define MAX_REQUEST_SIZE 65536 // 64k of space
-#define MAX_RESPONSE_SIZE 262144
+#include "file.h"
+
+#define MAX_METHOD_LENGTH 8      // enough for 7 characters
+#define MAX_PATH_LENGTH   65     // enough for 64 characters
+#define MAX_REQUEST_SIZE  65536  // 64k of space
+#define MAX_RESPONSE_SIZE 262144 // 256k of space
+
+#define SERVER_ROOT "./serverroot"
 
 
 /*
  * Constructs a valid HTTP response.
 */
-int send_response(int fd, char *header, char *content_type, void *body, int content_length) {
+static int send_response(int fd, char *header, char *content_type, void *body, int content_length) {
   char response[MAX_RESPONSE_SIZE];
 
   // date and time variables
@@ -44,6 +49,24 @@ int send_response(int fd, char *header, char *content_type, void *body, int cont
 }
 
 
+static int send_404(const int fd) {
+  char fp[4096];
+  struct file_data *err_page = NULL;  
+
+  snprintf(fp, 4096, "%s/404.html", SERVER_ROOT);
+  err_page = file_load(fp);
+  if (!err_page) {
+    perror("404 Fetch");
+    exit(-3);
+  }
+
+  int bytes_sent = send_response(fd, "HTTP/1.1 404 NOT FOUND", "text/html", err_page->data, strlen((char*)err_page->data));
+
+  file_free(err_page);
+  return bytes_sent;
+}
+
+
 /*
  * Handles a request.
 */
@@ -63,6 +86,6 @@ void handle_http_request(const int fd) {
   // parse request
   sscanf(req, "%s %s HTTP/1\n", method, path);
   printf("%s requested with method %s\n", path, method);
-  send_response(fd, "HTTP/1.1 200 OK", "text/text-plain", "Tester", 7);
+  send_404(fd);
 }
 
