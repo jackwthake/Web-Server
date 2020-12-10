@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 
 #include "net.h"
+#include "http.h"
 
 #define PORT "8080"
 
@@ -49,6 +50,7 @@ int main(void) {
         // listenfd is still listening for new connections.
 
         // handle connection.
+        handle_http_request(newfd);
 
         close(newfd);
     }
