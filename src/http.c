@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "file.h"
+#include "util/file.h"
 
 #define MAX_METHOD_LENGTH 8      // enough for 7 characters
 #define MAX_PATH_LENGTH   65     // enough for 64 characters
@@ -49,6 +49,9 @@ static int send_response(int fd, char *header, char *content_type, void *body, i
 }
 
 
+/*
+ * Grabs the 404 page, sends it over the network.
+*/
 static int send_404(const int fd) {
   char fp[4096];
   struct file_data *err_page = NULL;  

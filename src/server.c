@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "net.h"
+#include "util/net.h"
 #include "http.h"
 
 #define PORT "8080"
