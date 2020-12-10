@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 
 #include "util/file.h"
-#include "mime.h"
+#include "util/mime.h"
 
 #define MAX_METHOD_LENGTH 8      // enough for 7 characters
 #define MAX_PATH_LENGTH   65     // enough for 64 characters
@@ -57,15 +57,18 @@ static int send_404(const int fd) {
   char fp[4096];
   struct file_data *err_page = NULL;
 
+  // get file path to 404 page
   snprintf(fp, 4096, "%s/404.html", SERVER_ROOT);
   err_page = file_load(fp);
-  if (!err_page) {
+  if (!err_page) { // if not load fail
     perror("404 Fetch");
     exit(-3);
   }
 
+  // send page
   int bytes_sent = send_response(fd, "HTTP/1.1 404 NOT FOUND", get_mime_type(fp), err_page->data, err_page->size);
 
+  // free up file and return
   file_free(err_page);
   return bytes_sent;
 }
@@ -78,6 +81,7 @@ void handle_http_request(const int fd) {
   char req[MAX_REQUEST_SIZE]; // We won't use all of this space but this is the max it could be.
   char method[MAX_METHOD_LENGTH]; // holds the method used byt the request ie. GET or POST
   char path[MAX_PATH_LENGTH]; // holds the path of the request
+  char fp[4096];
 
   size_t bytes_recieved = recv(fd, req, MAX_REQUEST_SIZE - 1, 0); // recieve the actual data
 
@@ -90,16 +94,17 @@ void handle_http_request(const int fd) {
   // parse request
   sscanf(req, "%s %s HTTP/1\n", method, path);
 
-  // attempt to load file
-  char fp[4096];
-
+  // grab path and try loading
   snprintf(fp, 4096, "%s%s", SERVER_ROOT, path);
   struct file_data *req_data = file_load(fp);
   
-  if (!req_data)
+  if (!req_data) // file does not exist
     send_404(fd);
-  else {
+  else { // file found and loaded
     send_response(fd, "HTTP/1.1 200 OK", get_mime_type(path), req_data->data, req_data->size);
+    
+    // free up file memory
+    file_free(req_data);
   }
 }
 

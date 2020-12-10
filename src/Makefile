@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -Wextra
 
-OBJS=server.o http.o mime.o util/file.o util/net.o 
+OBJS=server.o http.o util/mime.o util/file.o util/net.o 
 
 all: ../server
 
@@ -12,11 +12,11 @@ util/net.o: util/net.c util/net.h
 
 util/file.o: util/file.c util/file.h
 
-mime.o: mime.c mime.h
+util/mime.o: util/mime.c util/mime.h
 
 http.o: http.c http.h util/file.h
 
-server.o: server.c http.h mime.h util/net.h
+server.o: server.c http.h util/mime.h util/net.h
 
 clean:
 	rm -f $(OBJS)
