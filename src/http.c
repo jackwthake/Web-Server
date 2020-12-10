@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 
 #include "util/file.h"
+#include "mime.h"
 
 #define MAX_METHOD_LENGTH 8      // enough for 7 characters
 #define MAX_PATH_LENGTH   65     // enough for 64 characters
@@ -54,7 +55,7 @@ static int send_response(int fd, char *header, char *content_type, void *body, i
 */
 static int send_404(const int fd) {
   char fp[4096];
-  struct file_data *err_page = NULL;  
+  struct file_data *err_page = NULL;
 
   snprintf(fp, 4096, "%s/404.html", SERVER_ROOT);
   err_page = file_load(fp);
@@ -63,7 +64,7 @@ static int send_404(const int fd) {
     exit(-3);
   }
 
-  int bytes_sent = send_response(fd, "HTTP/1.1 404 NOT FOUND", "text/html", err_page->data, strlen((char*)err_page->data));
+  int bytes_sent = send_response(fd, "HTTP/1.1 404 NOT FOUND", get_mime_type(fp), err_page->data, err_page->size);
 
   file_free(err_page);
   return bytes_sent;
@@ -88,7 +89,17 @@ void handle_http_request(const int fd) {
 
   // parse request
   sscanf(req, "%s %s HTTP/1\n", method, path);
-  printf("%s requested with method %s\n", path, method);
-  send_404(fd);
+
+  // attempt to load file
+  char fp[4096];
+
+  snprintf(fp, 4096, "%s%s", SERVER_ROOT, path);
+  struct file_data *req_data = file_load(fp);
+  
+  if (!req_data)
+    send_404(fd);
+  else {
+    send_response(fd, "HTTP/1.1 200 OK", get_mime_type(path), req_data->data, req_data->size);
+  }
 }
 
