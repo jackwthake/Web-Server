@@ -1,0 +1,9 @@
+{
+  "files.associations": {
+    "string_view": "cpp",
+    "unordered_map": "cpp",
+    "filesystem": "cpp",
+    "iosfwd": "cpp",
+    "chrono": "cpp"
+  }
+}
