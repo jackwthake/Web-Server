@@ -1,7 +1,6 @@
 #ifndef __FILE_HPP__
 #define __FILE_HPP__
 
-#include <fstream>
 #include <string>
 #include <filesystem>
 #include <unordered_map>
