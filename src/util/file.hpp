@@ -5,9 +5,7 @@
 #include <filesystem>
 #include <unordered_map>
 
-using namespace std;
-
-typedef unordered_map<string, string> directory_map;
-void read_directory(directory_map &, string dir);
+typedef std::unordered_map<std::string, std::string> directory_map;
+void read_directory(directory_map &, std::string dir);
 
 #endif

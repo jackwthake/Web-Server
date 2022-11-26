@@ -2,6 +2,8 @@
 
 #include <fstream>
 
+using namespace std;
+
 void read_directory(directory_map &dir_map, string dir) {
   for (const auto &entry : filesystem::directory_iterator(dir)) {
     if (entry.is_directory()) { // recursive read other directories
