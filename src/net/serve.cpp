@@ -18,6 +18,23 @@
   exit(EXIT_FAILURE); \
 }
 
+/*
+ * Adds response code to string
+*/
+static void add_res_code(std::string &res, const int code, const std::string msg) {
+  res += "HTTP/1.0 ";
+  res += std::to_string(code);
+  res += " " + msg + "\r\n\r\n";
+}
+
+
+/*
+ * Appends a header to the response string
+*/
+static void add_header(std::string &res, const std::pair<std::string, std::string> header) {
+  res += header.first + ": " + header.second + "\r\n\r\n";
+}
+
 
 Server::Server(void) {
   struct sockaddr_in servaddr;
@@ -52,17 +69,18 @@ Server::~Server(void) {
 
 void Server::listen_loop(void) {
   int client_fd, n;
-  uint8_t buff[MAX_LINE + 1], recv_line[MAX_LINE + 1];
-
+  uint8_t recv_line[MAX_LINE + 1];
   
   for (;;) {
+    std::string request;
+
     client_fd = accept(listen_fd, NULL, NULL);
     memset(recv_line, 0x00, MAX_LINE);
 
     // read in request;
     while ((n = read(client_fd, recv_line, MAX_LINE - 1)) > 0) {
-      std::cout << recv_line << std::endl;
-      if (recv_line[n - 1] == '\n')
+      request.append((char *)recv_line, n);
+      if (recv_line[n - 1] == '\n') // check for end of request
         break;
       
       memset(recv_line, 0x00, MAX_LINE);
@@ -71,10 +89,24 @@ void Server::listen_loop(void) {
     if (n < 0) // check read
       ERROR("Read fail. ");
     
-    // send back information
-    snprintf((char *)buff, sizeof(buff), "HTTP/1.0 200 OK\r\n\r\nHello, World!");
-    write(client_fd, (char *)buff, strnlen((char *)buff, MAX_LINE));
-
+    // Process request and send data
+    this->process_request(client_fd, request);
+    
     close(client_fd);
   }
+}
+
+
+void Server::process_request(int client_fd, std::string &req) {
+  std::string response;
+
+  // need to get the request type
+  // need to get the path
+  // process path
+  // load the appropriate file, etc
+  // send resposne
+
+  add_res_code(response, 200, "OK");
+  response += "Hello, World!";
+  write(client_fd, response.c_str(), response.length());
 }
