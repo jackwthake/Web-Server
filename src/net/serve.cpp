@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "route.hpp"
 
@@ -13,15 +14,20 @@
 #define MAX_LINE 4096
 #define BACKLOG 10
 
-#define ERROR(msg) { \
-  std::cerr << msg << strerror(errno) << std::endl; \
-  exit(EXIT_FAILURE); \
-}
-
-
 static Router router("./routing.conf");
 
-void process_request(int client_fd, std::string request);
+void handle_connection(int client_fd);
+
+
+/*
+ * Helper function for checking C-Library functions that set errno
+*/
+void error_check(int cond, const std::string msg) {
+  if (cond < 0) {
+    std::cerr << msg << strerror(errno) << std::endl;
+    exit(EXIT_FAILURE);
+  }
+}
 
 
 /*
@@ -74,13 +80,15 @@ void get_req_info(const std::string &req, std::string &method, std::string &path
 }
 
 
+/*
+ * Initialize the server and handle errors.
+*/
 int server_init(void) {
   int listen_fd;
   struct sockaddr_in servaddr;
 
   // create the socket
-  if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    ERROR("Socket error. ");
+  error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0, "Socket error. ");
   
   // setup address
   bzero(&servaddr, sizeof(struct sockaddr_in));
@@ -89,12 +97,10 @@ int server_init(void) {
   servaddr.sin_port = htons(PORT);
 
   // attempt to bind address to socket
-  if (bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-    ERROR("Bind error. ");
+  error_check(bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)) < 0, "Bind error. ");
   
   // attempt to start listening
-  if (listen(listen_fd, BACKLOG) < 0)
-    ERROR("Listen error. ");
+  error_check(listen(listen_fd, BACKLOG) < 0, "Listen error. ");
   
   return listen_fd;
 }
@@ -104,41 +110,37 @@ int server_init(void) {
  * Listen for new requests
 */
 void server_listen_loop(int listen_fd) {
-  int client_fd, n;
-  uint8_t recv_line[MAX_LINE + 1];
+  int client_fd;
   
   for (;;) {
-    std::string request;
+    client_fd = accept(listen_fd, NULL, NULL); /* blocks until request */
 
-    client_fd = accept(listen_fd, NULL, NULL);
-    memset(recv_line, 0x00, MAX_LINE);
-
-    // read in request;
-    while ((n = read(client_fd, recv_line, MAX_LINE - 1)) > 0) {
-      request.append((char *)recv_line, n);
-      if (recv_line[n - 1] == '\n') // check for end of request
-        break;
-      
-      memset(recv_line, 0x00, MAX_LINE);
-    }
-
-    if (n < 0) // check read
-      ERROR("Read fail. ");
-    
-    // Process request and send data
-    auto thread = std::thread(process_request, client_fd, request);
+    auto thread = std::thread(handle_connection, client_fd); /* imediately spin up thread for request */
     thread.detach();
   }
 }
 
 
 /*
- * read the request, generate the appropriate response and send to client
+ * Handle a single request
 */
-void process_request(int client_fd, std::string req) {
-  std::string response, method, path;
+void handle_connection(int client_fd) {
+  std::string request, response, path, method;
+  char recv_buf[MAX_LINE + 1];
+  int n;
 
-  get_req_info(req, method, path);
+  /* read in request */
+  memset(recv_buf, 0x00, MAX_LINE + 1);
+  while ((n = read(client_fd, recv_buf, MAX_LINE)) > 0) {
+    request.append(recv_buf, n);
+    if (recv_buf[n - 1] == '\n') // check for end of request
+      break;
+    
+    memset(recv_buf, 0x00, MAX_LINE);
+  }
+
+  /* Process Request */
+  get_req_info(request, method, path); // get path and method
 
   if (method.compare("GET") == 0) {
     const file_info *file = router.get_end_point(path); // attempt to find route
@@ -153,7 +155,8 @@ void process_request(int client_fd, std::string req) {
     }
   }
 
-  // send data
+  /* write to the client */
   write(client_fd, response.c_str(), response.length());
+  /* clean up file descriptors */
   close(client_fd);
 }
