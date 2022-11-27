@@ -32,13 +32,16 @@ static void add_res_code(std::string &res, const int code, const std::string msg
 /*
  * Appends a header to the response string
 */
-static void add_header(std::string &res, const std::pair<std::string, std::string> header, bool is_last_header = false) {
+static void add_header(std::string &res, const std::pair<std::string, std::string> header) {
   res += header.first + ": " + header.second;
-  
-  if (is_last_header) // TODO: Deal with this mess
-    res += "\r\n\r\n";
-  else
-    res += "\n";
+}
+
+
+/*
+ * Appends the body to the response
+*/
+static void add_body(std::string &res, const std::string body) {
+  res += "\r\n\r\n" + body;
 }
 
 
@@ -62,11 +65,8 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 }
 
 
-Server::Server(void) {
+Server::Server(void) : router("./routing.conf") {
   struct sockaddr_in servaddr;
-
-  // read in the file directory
-  read_directory(this->dir, SERVER_ROOT);
 
   // create the socket
   if ((this->listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -133,14 +133,17 @@ void Server::process_request(int client_fd, std::string &req) {
 
   // TODO: Streamline and automate this process, maybe have a config file with paths and files
   if (method.compare("GET") == 0) {
-    if (path.compare("/") == 0) {
+    const Router::Public_file *file = this->router.get_end_point(path);
+
+    if (file != NULL) {
       add_res_code(response, 200, "OK");
-      add_header(response, { "Content-Type", "text/html" }, true);
-      response += this->dir.find("./public/index.html")->second;
+      add_header(response, { "Content-Type", file->MIME_type });
+      add_body(response, file->contents);
+    } else {
+      add_res_code(response, 404, "NOT FOUND");
+      add_body(response, "NOT FOUND");
     }
   }
-
-  std::cout << response << std::endl;
 
   write(client_fd, response.c_str(), response.length());
 }
