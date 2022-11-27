@@ -17,7 +17,7 @@ Router::Router(std::string directory_path) {
 
   // read each route into memory
   do {
-    Public_file file;
+    file_info file;
     std::string route;
     
     // each route is stored in the config: "request_path file_path MIME_type"
@@ -35,7 +35,10 @@ Router::Router(std::string directory_path) {
 }
 
 
-const Router::Public_file *Router::get_end_point(std::string &path) {
+/*
+ * Returns a pointer to a route's relavent file if it exists, if it does not exist return NULL
+*/
+const file_info *Router::get_end_point(std::string &path) {
   auto route = this->routes.find(path);
   if (route == end(this->routes))
     return NULL;

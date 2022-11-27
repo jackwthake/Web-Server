@@ -11,7 +11,6 @@
 #define PORT 8000
 #define MAX_LINE 4096
 #define BACKLOG 10
-#define SERVER_ROOT "./public"
 
 #define ERROR(msg) { \
   std::cerr << msg << strerror(errno) << std::endl; \
@@ -45,12 +44,16 @@ static void add_body(std::string &res, const std::string body) {
 }
 
 
+/*
+ * Get info related to a request
+*/
 static void get_req_info(const std::string &req, std::string &method, std::string &path) {
   const char *data = req.data();
   bool found_method = false;
 
+  /* loop through the request */
   for (int i = 0; i < strlen(data); ++i) {
-    if (!found_method) {
+    if (!found_method) { 
       if (!isspace(data[i]))
         method += data[i];
       else
@@ -59,12 +62,15 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
       if (!isspace(data[i]))
         path += data[i];
       else
-        return;
+        return; /* nothing left to extract */
     }
   }
 }
 
 
+/*
+ * Setup server socket, start listening loop
+*/
 Server::Server(void) : router("./routing.conf") {
   struct sockaddr_in servaddr;
 
@@ -91,11 +97,17 @@ Server::Server(void) : router("./routing.conf") {
 }
 
 
+/*
+ * Cleanup file handler 
+*/
 Server::~Server(void) {
   close(this->listen_fd);
 }
 
 
+/*
+ * Listen for new requests
+*/
 void Server::listen_loop(void) {
   int client_fd, n;
   uint8_t recv_line[MAX_LINE + 1];
@@ -126,24 +138,27 @@ void Server::listen_loop(void) {
 }
 
 
+/*
+ * read the request, generate the appropriate response and send to client
+*/
 void Server::process_request(int client_fd, std::string &req) {
   std::string response, method, path;
 
   get_req_info(req, method, path);
 
-  // TODO: Streamline and automate this process, maybe have a config file with paths and files
   if (method.compare("GET") == 0) {
-    const Router::Public_file *file = this->router.get_end_point(path);
+    const file_info *file = this->router.get_end_point(path); // attempt to find route
 
-    if (file != NULL) {
+    if (file != NULL) { // route found, send contents
       add_res_code(response, 200, "OK");
       add_header(response, { "Content-Type", file->MIME_type });
       add_body(response, file->contents);
-    } else {
+    } else { // no route found in config
       add_res_code(response, 404, "NOT FOUND");
       add_body(response, "NOT FOUND");
     }
   }
 
+  // send data
   write(client_fd, response.c_str(), response.length());
 }
