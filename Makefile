@@ -24,7 +24,7 @@ $(OBJDIR)route.o: src/net/route.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
 
 $(OBJDIR)serve.o: src/net/serve.cpp
-	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
+	$(CC) $(CXXFLAGS) -pthread -c $< $(INCLUDE) -o $@
 
 $(OBJDIR)file.o: src/util/file.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@

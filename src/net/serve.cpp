@@ -1,4 +1,5 @@
 #include <iostream>
+#include <thread>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -6,7 +7,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include "serve.hpp"
+#include "route.hpp"
 
 #define PORT 8000
 #define MAX_LINE 4096
@@ -18,10 +19,15 @@
 }
 
 
+static Router router("./routing.conf");
+
+void process_request(int client_fd, std::string request);
+
+
 /*
  * Adds response code to string
 */
-static void add_res_code(std::string &res, const int code, const std::string msg) {
+void add_res_code(std::string &res, const int code, const std::string msg) {
   res += "HTTP/1.0 ";
   res += std::to_string(code);
   res += " " + msg + "\n";
@@ -31,7 +37,7 @@ static void add_res_code(std::string &res, const int code, const std::string msg
 /*
  * Appends a header to the response string
 */
-static void add_header(std::string &res, const std::pair<std::string, std::string> header) {
+void add_header(std::string &res, const std::pair<std::string, std::string> header) {
   res += header.first + ": " + header.second;
 }
 
@@ -39,7 +45,7 @@ static void add_header(std::string &res, const std::pair<std::string, std::strin
 /*
  * Appends the body to the response
 */
-static void add_body(std::string &res, const std::string body) {
+void add_body(std::string &res, const std::string body) {
   res += "\r\n\r\n" + body;
 }
 
@@ -47,7 +53,7 @@ static void add_body(std::string &res, const std::string body) {
 /*
  * Get info related to a request
 */
-static void get_req_info(const std::string &req, std::string &method, std::string &path) {
+void get_req_info(const std::string &req, std::string &method, std::string &path) {
   const char *data = req.data();
   bool found_method = false;
 
@@ -68,14 +74,12 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 }
 
 
-/*
- * Setup server socket, start listening loop
-*/
-Server::Server(void) : router("./routing.conf") {
+int server_init(void) {
+  int listen_fd;
   struct sockaddr_in servaddr;
 
   // create the socket
-  if ((this->listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     ERROR("Socket error. ");
   
   // setup address
@@ -89,26 +93,17 @@ Server::Server(void) : router("./routing.conf") {
     ERROR("Bind error. ");
   
   // attempt to start listening
-  if (listen(this->listen_fd, BACKLOG) < 0)
+  if (listen(listen_fd, BACKLOG) < 0)
     ERROR("Listen error. ");
   
-  // start listening loop:
-  this->listen_loop();
-}
-
-
-/*
- * Cleanup file handler 
-*/
-Server::~Server(void) {
-  close(this->listen_fd);
+  return listen_fd;
 }
 
 
 /*
  * Listen for new requests
 */
-void Server::listen_loop(void) {
+void server_listen_loop(int listen_fd) {
   int client_fd, n;
   uint8_t recv_line[MAX_LINE + 1];
   
@@ -131,9 +126,8 @@ void Server::listen_loop(void) {
       ERROR("Read fail. ");
     
     // Process request and send data
-    this->process_request(client_fd, request);
-    
-    close(client_fd);
+    auto thread = std::thread(process_request, client_fd, request);
+    thread.detach();
   }
 }
 
@@ -141,13 +135,13 @@ void Server::listen_loop(void) {
 /*
  * read the request, generate the appropriate response and send to client
 */
-void Server::process_request(int client_fd, std::string &req) {
+void process_request(int client_fd, std::string req) {
   std::string response, method, path;
 
   get_req_info(req, method, path);
 
   if (method.compare("GET") == 0) {
-    const file_info *file = this->router.get_end_point(path); // attempt to find route
+    const file_info *file = router.get_end_point(path); // attempt to find route
 
     if (file != NULL) { // route found, send contents
       add_res_code(response, 200, "OK");
@@ -161,4 +155,5 @@ void Server::process_request(int client_fd, std::string &req) {
 
   // send data
   write(client_fd, response.c_str(), response.length());
+  close(client_fd);
 }
