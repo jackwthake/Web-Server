@@ -38,7 +38,7 @@ Router::Router(std::string directory_path) {
 /*
  * Returns a pointer to a route's relavent file if it exists, if it does not exist return NULL
 */
-const file_info *Router::get_end_point(std::string &path) {
+const file_info *Router::get_end_point(std::string path) {
   auto route = this->routes.find(path);
   if (route == end(this->routes))
     return NULL;

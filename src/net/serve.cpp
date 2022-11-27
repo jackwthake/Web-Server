@@ -155,8 +155,11 @@ void handle_connection(int client_fd, struct sockaddr_in client_addr) {
       add_header(response, { "Content-Type", file->MIME_type });
       add_body(response, file->contents);
     } else { // no route found in config
+      auto file_404 = router.get_end_point("/404");
+
       add_res_code(response, 404, "NOT FOUND");
-      add_body(response, "NOT FOUND");
+      add_header(response, { "Content-Type", file_404->MIME_type });
+      add_body(response, file_404->contents);
     }
   }
 

@@ -12,7 +12,7 @@ class Router {
   public:
     Router(std::string directory_path);
 
-    const struct file_info *get_end_point(std::string &path);
+    const struct file_info *get_end_point(std::string path);
   private:
     std::unordered_map<std::string, file_info> routes;
 };
