@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <thread>
 
 #include <unistd.h>
@@ -16,7 +17,7 @@
 
 static Router router("./routing.conf");
 
-void handle_connection(int client_fd);
+void handle_connection(int client_fd, struct sockaddr_in);
 
 
 /*
@@ -88,7 +89,7 @@ int server_init(void) {
   struct sockaddr_in servaddr;
 
   // create the socket
-  error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0, "Socket error. ");
+  error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)), "Socket error. ");
   
   // setup address
   bzero(&servaddr, sizeof(struct sockaddr_in));
@@ -97,10 +98,10 @@ int server_init(void) {
   servaddr.sin_port = htons(PORT);
 
   // attempt to bind address to socket
-  error_check(bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)) < 0, "Bind error. ");
+  error_check(bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)), "Bind error. ");
   
   // attempt to start listening
-  error_check(listen(listen_fd, BACKLOG) < 0, "Listen error. ");
+  error_check(listen(listen_fd, BACKLOG), "Listen error. ");
   
   return listen_fd;
 }
@@ -110,12 +111,14 @@ int server_init(void) {
  * Listen for new requests
 */
 void server_listen_loop(int listen_fd) {
+  struct sockaddr_in client_addr;
+  socklen_t client_len;
   int client_fd;
   
   for (;;) {
-    client_fd = accept(listen_fd, NULL, NULL); /* blocks until request */
+    client_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
 
-    auto thread = std::thread(handle_connection, client_fd); /* imediately spin up thread for request */
+    auto thread = std::thread(handle_connection, client_fd, client_addr); /* imediately spin up thread for request */
     thread.detach();
   }
 }
@@ -124,7 +127,7 @@ void server_listen_loop(int listen_fd) {
 /*
  * Handle a single request
 */
-void handle_connection(int client_fd) {
+void handle_connection(int client_fd, struct sockaddr_in client_addr) {
   std::string request, response, path, method;
   char recv_buf[MAX_LINE + 1];
   int n;
@@ -141,6 +144,11 @@ void handle_connection(int client_fd) {
 
   /* Process Request */
   get_req_info(request, method, path); // get path and method
+
+  // print info
+  std::cout << "INCOMING REQUEST: " << std::setw(12) << inet_ntoa(client_addr.sin_addr) 
+                                    << " " << std::setw(5) << method 
+                                    << " " << path << std::endl;
 
   if (method.compare("GET") == 0) {
     const file_info *file = router.get_end_point(path); // attempt to find route
