@@ -7,9 +7,9 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
 
 #include "route.hpp"
+#include "../util/log.hpp"
 
 #define PORT 8000
 #define MAX_LINE 4096
@@ -25,8 +25,7 @@ void handle_connection(int client_fd, struct sockaddr_in);
 */
 void error_check(int cond, const std::string msg) {
   if (cond < 0) {
-    std::cerr << msg << strerror(errno) << std::endl;
-    exit(EXIT_FAILURE);
+    log_fatal_and_exit("ERROR: %s: %s", msg.c_str(), strerror(errno));
   }
 }
 
@@ -89,7 +88,7 @@ int server_init(void) {
   struct sockaddr_in servaddr;
 
   // create the socket
-  error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)), "Socket error. ");
+  error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)), "Socket error");
   
   // setup address
   bzero(&servaddr, sizeof(struct sockaddr_in));
@@ -98,10 +97,10 @@ int server_init(void) {
   servaddr.sin_port = htons(PORT);
 
   // attempt to bind address to socket
-  error_check(bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)), "Bind error. ");
+  error_check(bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)), "Bind error");
   
   // attempt to start listening
-  error_check(listen(listen_fd, BACKLOG), "Listen error. ");
+  error_check(listen(listen_fd, BACKLOG), "Listen error");
   
   return listen_fd;
 }
@@ -146,9 +145,7 @@ void handle_connection(int client_fd, struct sockaddr_in client_addr) {
   get_req_info(request, method, path); // get path and method
 
   // print info
-  std::cout << "INCOMING REQUEST: " << std::setw(12) << inet_ntoa(client_addr.sin_addr) 
-                                    << " " << std::setw(5) << method 
-                                    << " " << path << std::endl;
+  log_info("INCOMING CONNECTION: %12s %5s %s", inet_ntoa(client_addr.sin_addr), method.c_str(), path.c_str());
 
   if (method.compare("GET") == 0) {
     const file_info *file = router.get_end_point(path); // attempt to find route
