@@ -26,7 +26,8 @@ void handle_connection(int client_fd, struct sockaddr_in);
 */
 void error_check(int cond, const std::string msg) {
   if (cond < 0) {
-    log_fatal_and_exit("ERROR: %s: %s", msg.c_str(), strerror(errno));
+    log_info("ERROR: %s: %s", msg.c_str(), strerror(errno));
+    exit(EXIT_FAILURE);
   }
 }
 

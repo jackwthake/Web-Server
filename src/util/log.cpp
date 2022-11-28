@@ -1,56 +1,38 @@
-#include "log.hpp"
-
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 
-#include <cstdio>
 #include <cstdarg>
 
-static int log_fd = 0;
+#define LINE_BUF_SIZE 256
 
-void init_log_file(void) {
-  // unimplemented
+static std::fstream file("server.log", std::fstream::app);
+
+
+/*
+ * close the open file descriptor
+*/
+void close_log_file(void) {
+  file.close();
 }
 
+
+/*
+ * log information to both the console and a log file
+*/
 void log_info(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);
 
+  const size_t length = std::size("[mm/dd/yy hh:mm:ss]: "); // get length of time string
+  char line_buf[LINE_BUF_SIZE];
   auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
 
-  std::cout << "[" << COLOR_Yellow << std::put_time(&tm, "%d/%m/%Y %H:%M:%S") << COLOR_Reset << "]: " << COLOR_Cyan;
-  vprintf(fmt, args);
-  std::cout << COLOR_Reset << std::endl;
+  std::strftime(line_buf, length, "[%D %T]: ", std::localtime(&t)); // put date and time into string
+  vsnprintf(line_buf + (length - 1), 256 - (length - 1), fmt, args); // add the message
+
+  std::cout << line_buf << std::endl; // print message
+  file << line_buf << std::endl; // add message to log file
 
   va_end(args);
-}
-
-void log_warning(const char *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-
-  auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
-
-  std::cout << "[" << COLOR_Yellow << std::put_time(&tm, "%d/%m/%Y %H:%M:%S") << COLOR_Reset << "]: " << COLOR_Magenta;
-  vprintf(fmt, args);
-  std::cout << COLOR_Reset << std::endl;
-
-  va_end(args);
-}
-
-void log_fatal_and_exit(const char *fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-
-  auto t = std::time(nullptr);
-  auto tm = *std::localtime(&t);
-
-  std::cout << "[" << COLOR_Yellow << std::put_time(&tm, "%d/%m/%Y %H:%M:%S") << COLOR_Reset << "]: " << COLOR_Red;
-  vprintf(fmt, args);
-  std::cout << COLOR_Reset << std::endl;
-
-  va_end(args);
-  exit(EXIT_FAILURE);
 }
