@@ -1,5 +1,4 @@
 #include <iostream>
-#include <iomanip>
 #include <thread>
 
 #include <unistd.h>
@@ -17,6 +16,7 @@
 #define BACKLOG 10
 
 static Router router("./routing.conf");
+
 
 void handle_connection(int client_fd, struct sockaddr_in);
 
