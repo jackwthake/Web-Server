@@ -1,0 +1,19 @@
+#! /bin/bash
+
+# clone all dependancies
+git submodule init
+
+# setup openssl
+cd lib/openssl
+./Configure
+make
+
+
+if [[ $OSTYPE == 'darwin'* ]]; then
+  mv *.*.dylib /usr/local/lib/
+fi
+
+cd ../../
+
+mkdir bin
+mkdir obj

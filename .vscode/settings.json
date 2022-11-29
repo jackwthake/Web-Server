@@ -4,6 +4,7 @@
     "unordered_map": "cpp",
     "filesystem": "cpp",
     "iosfwd": "cpp",
-    "chrono": "cpp"
+    "chrono": "cpp",
+    "string": "cpp"
   }
 }
