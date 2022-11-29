@@ -10,12 +10,14 @@
 
 #include "route.hpp"
 #include "../util/log.hpp"
+#include "../util/pool.hpp"
 
 #define PORT 8000
 #define MAX_LINE 4096
 #define BACKLOG 10
 
 static Router router("./routing.conf");
+static thread_pool pool;
 
 
 void handle_connection(int client_fd, struct sockaddr_in);
@@ -119,8 +121,13 @@ void server_listen_loop(int listen_fd) {
   for (;;) {
     client_fd = accept(listen_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
 
-    auto thread = std::thread(handle_connection, client_fd, client_addr); /* imediately spin up thread for request */
-    thread.detach();
+    job_t job = {
+      handle_connection,
+      client_fd,
+      client_addr
+    };
+
+    pool.queue_job(job);
   }
 }
 

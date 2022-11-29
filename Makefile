@@ -13,7 +13,7 @@ debug: $(OUTDIR)serve
 	lldb ./$(OUTDIR)serve
 
 # build program but not run
-$(OUTDIR)serve: config $(OBJDIR)main.o $(OBJDIR)route.o $(OBJDIR)serve.o $(OBJDIR)file.o $(OBJDIR)log.o
+$(OUTDIR)serve: config $(OBJDIR)main.o $(OBJDIR)route.o $(OBJDIR)serve.o $(OBJDIR)log.o $(OBJDIR)pool.o
 	$(CC) $(OBJDIR)*.o $(LIBFLAGS) -o $(OUTDIR)serve
 
 # build source 
@@ -26,10 +26,10 @@ $(OBJDIR)route.o: src/net/route.cpp
 $(OBJDIR)serve.o: src/net/serve.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
 
-$(OBJDIR)file.o: src/util/file.cpp
+$(OBJDIR)log.o: src/util/log.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
 
-$(OBJDIR)log.o: src/util/log.cpp
+$(OBJDIR)pool.o: src/util/pool.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
 
 config:
