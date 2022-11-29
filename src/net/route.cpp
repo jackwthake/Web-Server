@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "../util/log.hpp"
+
 #define MAX_LINE 101
 
 Router::Router(std::string directory_path) {
@@ -31,6 +33,7 @@ Router::Router(std::string directory_path) {
 
     // insert route into table
     this->routes.insert({ route, file });
+    log_info("ROUTER: Attached route %s to file path %s.", route.c_str(), file.path.c_str());
   } while (!fp.eof());
 }
 

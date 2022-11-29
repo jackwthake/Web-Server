@@ -105,6 +105,7 @@ int server_init(void) {
   
   // attempt to start listening
   error_check(listen(listen_fd, BACKLOG), "Listen error");
+  log_info("SERVER: Server intialised using file descriptor %d, on port %d", listen_fd, PORT);
   
   return listen_fd;
 }
@@ -154,7 +155,7 @@ void handle_connection(int client_fd, struct sockaddr_in client_addr) {
   get_req_info(request, method, path); // get path and method
 
   // print info
-  log_info("INCOMING CONNECTION: %12s %5s %s", inet_ntoa(client_addr.sin_addr), method.c_str(), path.c_str());
+  log_info("SERVER: INCOMING CONNECTION: %12s %5s %s", inet_ntoa(client_addr.sin_addr), method.c_str(), path.c_str());
 
   if (method.compare("GET") == 0) {
     const file_info *file = router.get_end_point(path); // attempt to find route
