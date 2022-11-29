@@ -1,4 +1,5 @@
 # Web-Server
+[![CodeQL](https://github.com/jackwthake/Web-Server/actions/workflows/codeql.yml/badge.svg)](https://github.com/jackwthake/Web-Server/actions/workflows/codeql.yml)  
 A small light-weight multithreaded HTTP server
 ## Building
 ```
