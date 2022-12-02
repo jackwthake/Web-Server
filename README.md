@@ -21,5 +21,5 @@ make bin/serve
 - [x] Automatically route files
 - [x] Multithreaded handling of requests
 - [x] Thread pooling
+- [X] Use OpenSSL to serve HTTPS requests
 - [ ] Server side JSON Parsing
-- [ ] Use OpenSSL to serve HTTPS requests
