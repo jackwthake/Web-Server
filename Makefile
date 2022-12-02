@@ -6,17 +6,14 @@ OUTDIR=bin/
 CC=g++
 
 # build program but not run
-$(OUTDIR)serve: config $(OBJDIR)main.o $(OBJDIR)route.o $(OBJDIR)serve.o $(OBJDIR)log.o $(OBJDIR)pool.o
+$(OUTDIR)serve: config $(OBJDIR)main.o $(OBJDIR)server.o $(OBJDIR)log.o $(OBJDIR)pool.o
 	$(CC) $(OBJDIR)*.o $(LIBFLAGS) -o $(OUTDIR)serve
 
 # build source 
 $(OBJDIR)main.o: src/main.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
 
-$(OBJDIR)route.o: src/net/route.cpp
-	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
-
-$(OBJDIR)serve.o: src/net/serve.cpp
+$(OBJDIR)server.o: src/server.cpp
 	$(CC) $(CXXFLAGS) -c $< $(INCLUDE) -o $@
 
 $(OBJDIR)log.o: src/util/log.cpp

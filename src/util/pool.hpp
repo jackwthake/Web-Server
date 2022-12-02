@@ -7,16 +7,23 @@
 #include <queue>
 #include <utility>
 
+#include <openssl/ssl.h> // SSL structure
 #include <netinet/in.h> // struct sockaddr_in
-
-typedef std::function<void(int, struct sockaddr_in)> job_ptr;
 
 // holds info for one job
 struct job_t {
-  job_ptr func;
-  int fd; 
-  struct sockaddr_in client;
+  struct info_t {
+    const class https_server *server;
+    struct sockaddr_in client_addr;
+
+    SSL *ssl = NULL;
+    int client_fd = 0;
+  };
+
+  job_t::info_t info;
+  std::function<void(job_t::info_t)> func;
 };
+
 
 class thread_pool {
   public:

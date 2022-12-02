@@ -1,17 +1,7 @@
-#include "net/serve.hpp"
-
-#include <iostream>
-#include <unistd.h>
-
-#include <openssl/ssl.h>
+#include "server.hpp"
 
 int main(void) {
-  SSL_library_init();
-  
-  int server_fd = server_init();
-  server_listen_loop(server_fd);
-
-  close(server_fd);
+  https_server server;
 
   return EXIT_SUCCESS;
 }

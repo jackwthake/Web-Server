@@ -85,6 +85,6 @@ void thread_pool::thread_loop(void) {
     }
 
     // run the job
-    job.func(job.fd, job.client);
+    job.func(job.info);
   }
 }

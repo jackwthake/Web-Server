@@ -10,10 +10,12 @@ make
 
 
 if [[ $OSTYPE == 'darwin'* ]]; then
+  mv *.a /usr/local/lib/
+  mv *.dylib /usr/local/lib/
   mv *.*.dylib /usr/local/lib/
 fi
 
 cd ../../
 
 mkdir bin
-mkdir obj
+mkdir bin/obj
