@@ -2,9 +2,6 @@
 
 set -e
 
-sudo apt-get update
-sudo apt-get upgrade
-
 sudo apt-get -y install build-essential
 sudo apt-get -y install libssl-dev
 
@@ -12,4 +9,3 @@ https://github.com/jackwthake/Web-Server
 cd Web-Server
 
 make
-sudo ./bin/serve
