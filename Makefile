@@ -1,6 +1,6 @@
-CXXFLAGS=--std=c++17 -Wall -ggdb -pthread
-INCLUDE=-Ilib/openssl/include/
-LIBFLAGS=-Llib/openssl -lssl
+CXXFLAGS=--std=c++17 -Wall -ggdb
+INCLUDE=
+LIBFLAGS=-lpthread -lssl
 OBJDIR=bin/obj/
 OUTDIR=bin/
 CC=g++
