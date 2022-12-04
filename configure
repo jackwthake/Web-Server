@@ -1,21 +1,15 @@
 #! /bin/bash
 
-# clone all dependancies
-git submodule init
+set -e
 
-# setup openssl
-cd lib/openssl
-./Configure
+sudo apt-get update
+sudo apt-get upgrade
+
+sudo apt-get -y install build-essential
+sudo apt-get -y install libssl-dev
+
+https://github.com/jackwthake/Web-Server
+cd Web-Server
+
 make
-
-
-if [[ $OSTYPE == 'darwin'* ]]; then
-  mv *.a /usr/local/lib/
-  mv *.dylib /usr/local/lib/
-  mv *.*.dylib /usr/local/lib/
-fi
-
-cd ../../
-
-mkdir bin
-mkdir bin/obj
+sudo ./bin/serve

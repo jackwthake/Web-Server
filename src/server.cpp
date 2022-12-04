@@ -70,7 +70,7 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
   bool found_method = false;
 
   /* loop through the request */
-  for (int i = 0; i < strlen(data); ++i) {
+  for (size_t i = 0; i < strlen(data); ++i) {
     if (!found_method) { 
       if (!isspace(data[i]))
         method += data[i];
@@ -173,6 +173,7 @@ https_server::https_server() {
 
 https_server::~https_server() { 
   close(this->socket_fd);
+  close_log_file();
 }
 
 
@@ -181,8 +182,9 @@ https_server::~https_server() {
 */
 const https_server::file_info *https_server::get_endpoint(std::string path) const {
   auto route = this->routing.find(path);
-  if (route == end(this->routing))
+  if (route == end(this->routing)) {
     return NULL;
+  }
 
     return &route->second;
 }

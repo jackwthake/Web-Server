@@ -2,10 +2,12 @@
 #define __POOL_HPP__
 
 #include <functional>
+#include <thread>
 #include <mutex>
 #include <vector>
 #include <queue>
-#include <utility>
+#include <utility
+#include <condition_variable>
 
 #include <openssl/ssl.h> // SSL structure
 #include <netinet/in.h> // struct sockaddr_in
