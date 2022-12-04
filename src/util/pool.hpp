@@ -6,7 +6,7 @@
 #include <mutex>
 #include <vector>
 #include <queue>
-#include <utility
+#include <utility>
 #include <condition_variable>
 
 #include <openssl/ssl.h> // SSL structure
