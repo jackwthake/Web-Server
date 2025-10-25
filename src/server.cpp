@@ -94,19 +94,28 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 /**
  *  handles one get request, querying the router, building an adequate response
 */
-static void handle_get_request(const https_server *server, std::string &response, std::string &path) { 
-  const https_server::file_info *file = server->get_endpoint(path); // attempt to find route
+static void handle_get_request(const https_server *server, std::string &response, std::string &path) {
+  auto file = server->get_endpoint(path); // attempt to find route
 
-  if (file != NULL) { // route found, send contents
+  if (file.has_value()) { // route found, send contents
+    const auto& file_info = file->get();
     add_response_code(response, 200, "OK");
-    add_header(response, "Content-Type", file->MIME_type);
-    add_body(response, file->contents);
+    add_header(response, "Content-Type", file_info.MIME_type);
+    add_body(response, file_info.contents);
   } else { // no route found in config
     auto file_404 = server->get_endpoint("/404");
 
-    add_response_code(response, 404, "NOT FOUND");
-    add_header(response, "Content-Type", file_404->MIME_type);
-    add_body(response, file_404->contents);
+    if (file_404.has_value()) {
+      const auto& file_404_info = file_404->get();
+      add_response_code(response, 404, "NOT FOUND");
+      add_header(response, "Content-Type", file_404_info.MIME_type);
+      add_body(response, file_404_info.contents);
+    } else {
+      // Fallback if /404 route doesn't exist
+      add_response_code(response, 404, "NOT FOUND");
+      add_header(response, "Content-Type", "text/plain");
+      add_body(response, "404 - Page Not Found");
+    }
   }
 }
 
@@ -178,15 +187,15 @@ https_server::~https_server() {
 
 
 /**
- * Searches the server's internal routing hash map, returning any matches 
+ * Searches the server's internal routing hash map, returning any matches
 */
-const https_server::file_info *https_server::get_endpoint(std::string path) const {
+std::optional<std::reference_wrapper<const https_server::file_info>> https_server::get_endpoint(const std::string &path) const {
   auto route = this->routing.find(path);
   if (route == end(this->routing)) {
-    return NULL;
+    return std::nullopt;
   }
 
-    return &route->second;
+  return std::cref(route->second);
 }
 
 
@@ -220,18 +229,19 @@ int https_server::create_server_socket() {
 /**
  * Main loop of the server, waits for connections and attempts to establish a secure connection
 */
-void https_server::main_loop() { 
+void https_server::main_loop() {
   struct sockaddr_in client_addr;
-  socklen_t client_len;
+  socklen_t client_len = sizeof(client_addr);
 
   for (;;) {
     int client_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
 
     /* set up ssl for socket */
-    SSL *ssl = SSL_new(this->ssl_ctx);
+    SSL *ssl = SSL_new(this->ssl_ctx.get());
     SSL_set_fd(ssl, client_fd);
 
-    if (SSL_accept(ssl)) {
+    int accept_result = SSL_accept(ssl);
+    if (accept_result == 1) {
       /* submit job */
       job_t job = {
         {
@@ -244,6 +254,18 @@ void https_server::main_loop() {
       };
 
       this->pool.queue_job(job);
+    } else {
+      /* SSL handshake failed, clean up resources */
+      int ssl_error = SSL_get_error(ssl, accept_result);
+      unsigned long err_code = ERR_get_error();
+      char err_buf[256];
+      ERR_error_string_n(err_code, err_buf, sizeof(err_buf));
+
+      log_info("SERVER: SSL handshake failed for client %s - SSL_error: %d, Error: %s",
+               inet_ntoa(client_addr.sin_addr), ssl_error, err_buf);
+
+      SSL_free(ssl);
+      close(client_fd);
     }
   }
 }
@@ -255,10 +277,11 @@ void https_server::main_loop() {
 void https_server::create_SSL_context() {
   const SSL_METHOD *method = TLS_server_method();
 
-  this->ssl_ctx = SSL_CTX_new(method);
-  if (!this->ssl_ctx) {
+  SSL_CTX* ctx = SSL_CTX_new(method);
+  if (!ctx) {
     error_check(-1, "Unable to create SSL Context.");
   }
+  this->ssl_ctx.reset(ctx);
 }
 
 
@@ -266,8 +289,8 @@ void https_server::create_SSL_context() {
  * Load certificates and keys
 */
 void https_server::configure_SSL_context() {
-  error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx, "./secret/certificate.crt"), "Failed to load certificate.");
-  error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx, "./secret/secret.key", SSL_FILETYPE_PEM), "Unable to load key file.");
+  error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx.get(), "./secret/server.crt"), "Failed to load certificate.");
+  error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx.get(), "./secret/server.key", SSL_FILETYPE_PEM), "Unable to load key file.");
 }
 
 

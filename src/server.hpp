@@ -2,6 +2,8 @@
 #define __SERVE_HPP__
 
 #include <unordered_map>
+#include <memory>
+#include <optional>
 
 #include <openssl/ssl.h>
 #include <netinet/in.h> // struct sockaddr_in
@@ -17,7 +19,7 @@ class https_server {
     https_server();
     ~https_server();
 
-    const https_server::file_info *get_endpoint(std::string path) const;
+    std::optional<std::reference_wrapper<const file_info>> get_endpoint(const std::string &path) const;
   private:
     int create_server_socket();
     void main_loop();
@@ -27,7 +29,14 @@ class https_server {
     void populate_router();
 
     thread_pool pool;
-    SSL_CTX *ssl_ctx;
+
+    // Custom deleter for SSL_CTX
+    struct SSL_CTX_Deleter {
+      void operator()(SSL_CTX* ctx) const {
+        if (ctx) SSL_CTX_free(ctx);
+      }
+    };
+    std::unique_ptr<SSL_CTX, SSL_CTX_Deleter> ssl_ctx;
 
     int socket_fd;
     std::unordered_map<std::string, file_info> routing;

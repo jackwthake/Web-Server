@@ -57,7 +57,7 @@ bool thread_pool::is_busy(void) {
   bool pool_busy;
   { // after the mutex goes out of scope it is released
     std::unique_lock<std::mutex> lock(this->queue_mutex); // prevent data races
-    pool_busy = jobs.empty();
+    pool_busy = !jobs.empty();
   }
 
   return pool_busy;

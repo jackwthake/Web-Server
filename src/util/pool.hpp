@@ -18,7 +18,7 @@ struct job_t {
     const class https_server *server;
     struct sockaddr_in client_addr;
 
-    SSL *ssl = NULL;
+    SSL *ssl = nullptr;
     int client_fd = 0;
   };
 
