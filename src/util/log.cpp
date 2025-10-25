@@ -9,17 +9,13 @@
 static std::fstream file("server.log", std::fstream::app);
 
 
-/*
- * close the open file descriptor
-*/
+// Close the open file descriptor
 void close_log_file(void) {
   file.close();
 }
 
 
-/*
- * log information to both the console and a log file
-*/
+// Log information to both the console and a log file
 void log_info(const char *fmt, ...) {
   va_list args;
   va_start(args, fmt);

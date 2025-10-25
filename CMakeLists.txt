@@ -45,9 +45,11 @@ configure_file(
     COPYONLY
 )
 
-# Copy secret directory to build directory
-file(COPY ${CMAKE_SOURCE_DIR}/secret
-     DESTINATION ${CMAKE_BINARY_DIR})
+# Copy secret directory to build directory (if it exists)
+if(EXISTS ${CMAKE_SOURCE_DIR}/secret)
+    file(COPY ${CMAKE_SOURCE_DIR}/secret
+         DESTINATION ${CMAKE_BINARY_DIR})
+endif()
 
 # Copy public directory to build directory
 file(COPY ${CMAKE_SOURCE_DIR}/public
@@ -56,7 +58,9 @@ file(COPY ${CMAKE_SOURCE_DIR}/public
 # Installation rules
 install(TARGETS serve DESTINATION bin)
 install(FILES routing.conf DESTINATION bin)
-install(DIRECTORY secret DESTINATION bin)
+if(EXISTS ${CMAKE_SOURCE_DIR}/secret)
+    install(DIRECTORY secret DESTINATION bin)
+endif()
 install(DIRECTORY public DESTINATION bin)
 
 # Print build information

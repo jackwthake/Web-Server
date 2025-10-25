@@ -5,9 +5,7 @@
 #include "log.hpp"
 
 
-/*
- * Createes the thread pool, populates the pool with as many threads as possible
-*/
+// Creates the thread pool, populates the pool with as many threads as possible
 thread_pool::thread_pool() {
   const uint32_t num_threads = std::thread::hardware_concurrency(); // get max number of threads
   this->threads.resize(num_threads); // resize threads vector
@@ -18,10 +16,7 @@ thread_pool::thread_pool() {
   }
 }
 
-
-/*
- * Close all open threads, letting them finish each job first
-*/
+// Close all open threads, letting them finish each job first
 thread_pool::~thread_pool() {
   { // after the mutex goes out of scope it is released
     std::unique_lock<std::mutex> lock(this->queue_mutex); // prevent data races
@@ -37,10 +32,7 @@ thread_pool::~thread_pool() {
   threads.clear();
 }
 
-
-/*
- * Enqueue a job to the thread pool
-*/
+// Enqueue a job to the thread pool
 void thread_pool::queue_job(const job_t &job) {
   { // after the mutex goes out of scope it is released
     std::unique_lock<std::mutex> lock(this->queue_mutex); // prevent data races
@@ -49,10 +41,7 @@ void thread_pool::queue_job(const job_t &job) {
   mutex_condition.notify_one();
 }
 
-
-/*
- * Return if the pool is currently completing jobs
-*/
+// Return if the pool is currently completing jobs
 bool thread_pool::is_busy(void) {
   bool pool_busy;
   { // after the mutex goes out of scope it is released
@@ -63,10 +52,7 @@ bool thread_pool::is_busy(void) {
   return pool_busy;
 }
 
-
-/*
- * Main function for each thread. The thread waits for a job to become available then executes
-*/
+// Main function for each thread. The thread waits for a job to become available then executes
 void thread_pool::thread_loop(void) {
   for (;;) {
     job_t job;

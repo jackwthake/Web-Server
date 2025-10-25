@@ -1,6 +1,7 @@
 #ifndef __SERVE_HPP__
 #define __SERVE_HPP__
 
+#include <string>
 #include <unordered_map>
 #include <memory>
 #include <optional>
