@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <thread>
+#include <stdexcept>
 
 #include <unistd.h>
 #include <cstring>
@@ -25,20 +26,17 @@
  * Static helper functions
 ******************************/
 
-/*
- * check C-Library functions that set errno
-*/
+// Check C-Library functions that set errno
 static void error_check(int cond, const std::string msg) {
   if (cond < 0) {
-    log_info("ERROR: %s: %s", msg.c_str(), strerror(errno));
-    exit(EXIT_FAILURE);
+    std::string error_msg = msg + ": " + strerror(errno);
+    log_info("ERROR: %s", error_msg.c_str());
+    throw std::runtime_error(error_msg);
   }
 }
 
 
-/*
- * Add response code to response
-*/
+// Add response code to response
 static void add_response_code(std::string &response, const int code, const std::string msg) { 
   response += "HTTP/1.0 ";
   response += std::to_string(code);
@@ -46,25 +44,18 @@ static void add_response_code(std::string &response, const int code, const std::
 }
 
 
-/*
- * Add header to response
-*/
+// Add header to response
 static void add_header(std::string &response, const std::string header_key, const std::string &header_val) { 
   response += header_key + ": " + header_val;
 }
 
 
-/*
- * Add the body to an request
-*/
+// Add the body to an request
 static void add_body(std::string &response, const std::string &body) { 
   response += "\r\n\r\n" + body;
 }
 
-
-/*
- * Get info related to a request
-*/
+// Get info related to a request
 static void get_req_info(const std::string &req, std::string &method, std::string &path) {
   const char *data = req.data();
   bool found_method = false;
@@ -86,14 +77,11 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 }
 
 
-
 /*****************************
  * Request handling functions
 ******************************/
 
-/**
- *  handles one get request, querying the router, building an adequate response
-*/
+//  handles one get request, querying the router, building an adequate response
 static void handle_get_request(const https_server *server, std::string &response, std::string &path) {
   auto file = server->get_endpoint(path); // attempt to find route
 
@@ -119,17 +107,9 @@ static void handle_get_request(const https_server *server, std::string &response
   }
 }
 
-
-static void handle_post_request(std::string &response, std::string &path) { 
-  /* UNIMPLMENTED */
-}
-
-
-/**
- * Handle an incoming connection, this function will be called by one of the threads in the thread pool.
- * uses openSSL to read and write data to the client socket.
-*/
-static void handle_connection(job_t::info_t job_info) { 
+// Handle an incoming connection, this function will be called by one of the threads in the thread pool.
+// uses openSSL to read and write data to the client socket.
+static void handle_connection(job_t::info_t job_info) {
   std::string request, response, path, method;
   char recv_buf[MAX_LINE + 1];
   int n;
@@ -151,8 +131,6 @@ static void handle_connection(job_t::info_t job_info) {
   /* build appropriate response */
   if (method.compare("GET") == 0) {
     handle_get_request(job_info.server, response, path);
-  } else if (method.compare("POST") == 0) {
-    handle_post_request(response, path);
   }
 
   /* write response back to client */
@@ -163,7 +141,6 @@ static void handle_connection(job_t::info_t job_info) {
   SSL_free(job_info.ssl);
   close(job_info.client_fd);
 }
-
 
 
 /*************************************
@@ -179,16 +156,12 @@ https_server::https_server() {
   this->main_loop();
 }
 
-
 https_server::~https_server() { 
   close(this->socket_fd);
   close_log_file();
 }
 
-
-/**
- * Searches the server's internal routing hash map, returning any matches
-*/
+// Searches the server's internal routing hash map, returning any matches
 std::optional<std::reference_wrapper<const https_server::file_info>> https_server::get_endpoint(const std::string &path) const {
   auto route = this->routing.find(path);
   if (route == end(this->routing)) {
@@ -198,10 +171,7 @@ std::optional<std::reference_wrapper<const https_server::file_info>> https_serve
   return std::cref(route->second);
 }
 
-
-/**
- * Create the server's listening socket
-*/
+// Create the server's listening socket
 int https_server::create_server_socket() { 
   int listen_fd;
   struct sockaddr_in servaddr;
@@ -225,10 +195,7 @@ int https_server::create_server_socket() {
   return listen_fd;
 }
 
-
-/**
- * Main loop of the server, waits for connections and attempts to establish a secure connection
-*/
+// Main loop of the server, waits for connections and attempts to establish a secure connection
 void https_server::main_loop() {
   struct sockaddr_in client_addr;
   socklen_t client_len = sizeof(client_addr);
@@ -270,57 +237,55 @@ void https_server::main_loop() {
   }
 }
 
-
-/**
- * Creates an SSL context and error checks
-*/
+// Creates an SSL context and error checks
 void https_server::create_SSL_context() {
   const SSL_METHOD *method = TLS_server_method();
 
   SSL_CTX* ctx = SSL_CTX_new(method);
   if (!ctx) {
-    error_check(-1, "Unable to create SSL Context.");
+    throw std::runtime_error("Unable to create SSL Context.");
   }
   this->ssl_ctx.reset(ctx);
 }
 
-
-/**
- * Load certificates and keys
-*/
+// Load certificates and keys
 void https_server::configure_SSL_context() {
   error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx.get(), "./secret/server.crt"), "Failed to load certificate.");
   error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx.get(), "./secret/server.key", SSL_FILETYPE_PEM), "Unable to load key file.");
 }
 
-
-/**
- * Seaerches the default routing config file, populating the hash map with valid routes,
- * if a route is not in the hash map, the route will not be served.
-*/
+// Searches the default routing config file, populating the hash map with valid routes,
+// if a route is not in the hash map, the route will not be served.
 void https_server::populate_router() {
   std::ifstream fp;
 
   // open routing config file
   fp.open(ROUTER_CONFIG_PATH);
   if (!fp) {
-    std::cout << "Failed to open routing config file at path: routing.conf"  << std::endl;
-    exit(EXIT_FAILURE);
+    throw std::runtime_error("Failed to open routing config file at path: routing.conf");
   }
 
   // read each route into memory
   do {
     file_info file;
     std::string route;
-    
+
     // each route is stored in the config: "request_path file_path MIME_type"
     std::getline(fp, route, ' ');
     std::getline(fp, file.path, ' ');
     std::getline(fp, file.MIME_type, '\n');
-    
-    // load file content
-    std::fstream str(file.path, std::fstream::in);
-    file.contents = std::string((std::istreambuf_iterator<char>(str)), std::istreambuf_iterator<char>());
+
+    try {
+      // load file content
+      std::fstream str(file.path, std::fstream::in);
+      if (!str) {
+        throw std::runtime_error("Failed to open file: " + file.path);
+      }
+      file.contents = std::string((std::istreambuf_iterator<char>(str)), std::istreambuf_iterator<char>());
+    } catch (const std::exception &e) {
+      log_info("ERROR: Failed to load route file: %s", e.what());
+      throw;
+    }
 
     // insert route into table
     this->routing.insert({ route, file });
