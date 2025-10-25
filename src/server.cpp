@@ -18,7 +18,7 @@
 #define ROUTER_CONFIG_PATH "./routing.conf"
 #define MAX_LINE            4096
 #define BACKLOG             10
-#define PORT                8000
+#define PORT                443
 
 
 /*****************************
