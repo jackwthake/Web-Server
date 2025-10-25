@@ -266,29 +266,31 @@ void https_server::populate_router() {
   }
 
   // read each route into memory
-  do {
+  std::string route;
+  while (std::getline(fp, route, ' ')) {
+    if (route.empty()) break;  // Skip empty lines
+
     file_info file;
-    std::string route;
-
-    // each route is stored in the config: "request_path file_path MIME_type"
-    std::getline(fp, route, ' ');
-    std::getline(fp, file.path, ' ');
-    std::getline(fp, file.MIME_type, '\n');
-
-    try {
-      // load file content
-      std::fstream str(file.path, std::fstream::in);
-      if (!str) {
-        throw std::runtime_error("Failed to open file: " + file.path);
-      }
-      file.contents = std::string((std::istreambuf_iterator<char>(str)), std::istreambuf_iterator<char>());
-    } catch (const std::exception &e) {
-      log_info("ERROR: Failed to load route file: %s", e.what());
-      throw;
+    if (!std::getline(fp, file.path, ' ')) {
+      log_info("ERROR: Invalid routing.conf format - missing file path");
+      break;
     }
+    if (!std::getline(fp, file.MIME_type, '\n')) {
+      log_info("ERROR: Invalid routing.conf format - missing MIME type");
+      break;
+    }
+
+    // load file content
+    std::fstream str(file.path, std::fstream::in);
+    if (!str) {
+      log_info("ERROR: Cannot open route file: %s - skipping route %s", file.path.c_str(), route.c_str());
+      continue;  // Skip this route but continue processing others
+    }
+
+    file.contents = std::string((std::istreambuf_iterator<char>(str)), std::istreambuf_iterator<char>());
 
     // insert route into table
     this->routing.insert({ route, file });
     log_info("ROUTER: Attached route %s to file path %s.", route.c_str(), file.path.c_str());
-  } while (!fp.eof());
+  }
 }
