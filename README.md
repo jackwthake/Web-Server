@@ -2,10 +2,23 @@
 [![CodeQL](https://github.com/jackwthake/Web-Server/actions/workflows/codeql.yml/badge.svg)](https://github.com/jackwthake/Web-Server/actions/workflows/codeql.yml)  
 A small light-weight multithreaded HTTP server
 ## Building
-```
-clone https://github.com/jackwthake/Web-Server
+
+### Using CMake (Recommended)
+```bash
+git clone https://github.com/jackwthake/Web-Server
 cd Web-Server
-make bin/serve
+mkdir build && cd build
+cmake ..
+cmake --build .
+./serve
+```
+
+### Using Make (Legacy)
+```bash
+git clone https://github.com/jackwthake/Web-Server
+cd Web-Server
+make
+./bin/serve
 ```
 ## Request Processing
 1. New request is recieved in ```server_listen_loop()```

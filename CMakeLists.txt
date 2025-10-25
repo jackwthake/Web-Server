@@ -1,0 +1,65 @@
+cmake_minimum_required(VERSION 3.10)
+project(WebServer VERSION 1.0.0 LANGUAGES CXX)
+
+# Set C++17 standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Compiler flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+set(CMAKE_CXX_FLAGS_DEBUG "-ggdb")
+
+# Find required packages
+find_package(OpenSSL REQUIRED)
+find_package(Threads REQUIRED)
+
+# Source files
+set(SOURCES
+    src/main.cpp
+    src/server.cpp
+    src/util/log.cpp
+    src/util/pool.cpp
+)
+
+# Create executable
+add_executable(serve ${SOURCES})
+
+# Include directories
+target_include_directories(serve PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+    ${OPENSSL_INCLUDE_DIR}
+)
+
+# Link libraries
+target_link_libraries(serve PRIVATE
+    Threads::Threads
+    OpenSSL::SSL
+    OpenSSL::Crypto
+)
+
+# Copy routing.conf to build directory
+configure_file(
+    ${CMAKE_SOURCE_DIR}/routing.conf
+    ${CMAKE_BINARY_DIR}/routing.conf
+    COPYONLY
+)
+
+# Copy secret directory to build directory
+file(COPY ${CMAKE_SOURCE_DIR}/secret
+     DESTINATION ${CMAKE_BINARY_DIR})
+
+# Copy public directory to build directory
+file(COPY ${CMAKE_SOURCE_DIR}/public
+     DESTINATION ${CMAKE_BINARY_DIR})
+
+# Installation rules
+install(TARGETS serve DESTINATION bin)
+install(FILES routing.conf DESTINATION bin)
+install(DIRECTORY secret DESTINATION bin)
+install(DIRECTORY public DESTINATION bin)
+
+# Print build information
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
