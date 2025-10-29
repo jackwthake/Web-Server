@@ -1,0 +1,13 @@
+[Unit]
+Description=Secure Serve Reboot Script
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/secure-serve/on_reboot.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
