@@ -38,13 +38,6 @@ target_link_libraries(serve PRIVATE
     OpenSSL::Crypto
 )
 
-# Copy routing.conf to build directory
-configure_file(
-    ${CMAKE_SOURCE_DIR}/routing.conf
-    ${CMAKE_BINARY_DIR}/routing.conf
-    COPYONLY
-)
-
 # Copy secret directory to build directory (if it exists)
 if(EXISTS ${CMAKE_SOURCE_DIR}/secret)
     file(COPY ${CMAKE_SOURCE_DIR}/secret

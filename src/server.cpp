@@ -17,7 +17,7 @@
 #include "util/pool.hpp"
 #include "util/log.hpp"
 
-#define ROUTER_CONFIG_PATH "./routing.conf"
+#define ROUTER_CONFIG_PATH "./public/endpoints.conf"
 #define MAX_LINE            4096
 #define BACKLOG             10
 #define PORT                443
@@ -107,7 +107,7 @@ static void handle_get_request(const https_server *server, std::string &response
       add_header(response, "Content-Type", "text/plain");
       add_body(response, "404 - Page Not Found");
     }
-    
+
     log_info("SERVER: INCOMING CONNECTION: %12s GET %s -> 404 ERR NOT FOUND", inet_ntoa(client_addr), path.c_str());
   }
 }
