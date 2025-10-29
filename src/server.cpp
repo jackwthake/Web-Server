@@ -83,7 +83,7 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 ******************************/
 
 //  handles one get request, querying the router, building an adequate response
-static void handle_get_request(const https_server *server, std::string &response, std::string &path) {
+static void handle_get_request(const https_server *server, std::string &response, std::string &path, struct in_addr &client_addr) {
   auto file = server->get_endpoint(path); // attempt to find route
 
   if (file.has_value()) { // route found, send contents
@@ -91,6 +91,8 @@ static void handle_get_request(const https_server *server, std::string &response
     add_response_code(response, 200, "OK");
     add_header(response, "Content-Type", file_info.MIME_type);
     add_body(response, file_info.contents);
+
+    log_info("SERVER: INCOMING CONNECTION: %12s GET %s -> 200 OK", inet_ntoa(client_addr), path.c_str());
   } else { // no route found in config
     auto file_404 = server->get_endpoint("/404");
 
@@ -105,6 +107,8 @@ static void handle_get_request(const https_server *server, std::string &response
       add_header(response, "Content-Type", "text/plain");
       add_body(response, "404 - Page Not Found");
     }
+    
+    log_info("SERVER: INCOMING CONNECTION: %12s GET %s -> 404 ERR NOT FOUND", inet_ntoa(client_addr), path.c_str());
   }
 }
 
@@ -127,11 +131,21 @@ static void handle_connection(job_t::info_t job_info) {
 
   /* Process Request */
   get_req_info(request, method, path); // get path and method
-  log_info("SERVER: INCOMING CONNECTION: %12s %5s %s", inet_ntoa(job_info.client_addr.sin_addr), method.c_str(), path.c_str());
 
   /* build appropriate response */
   if (method.compare("GET") == 0) {
-    handle_get_request(job_info.server, response, path);
+    handle_get_request(job_info.server, response, path, job_info.client_addr.sin_addr);
+  } else {
+    // Method not allowed for static site
+    add_response_code(response, 405, "METHOD NOT ALLOWED");
+    add_header(response, "Content-Type", "text/plain");
+    add_header(response, "Allow", "GET");
+    add_body(response, "405 - Method Not Allowed");
+
+    const char* log_method = method.empty() ? "<empty>" : method.c_str();
+    const char* log_path = path.empty() ? "<empty>" : path.c_str();
+    log_info("SERVER: INCOMING CONNECTION: %12s %s %s -> 405 ERR METHOD NOT ALLOWED",
+             inet_ntoa(job_info.client_addr.sin_addr), log_method, log_path);
   }
 
   /* write response back to client */
