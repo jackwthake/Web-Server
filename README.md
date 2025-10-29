@@ -68,15 +68,15 @@ This project includes a fully automated deployment pipeline for AWS EC2 instance
 
 ```
 1. Initial Launch (EC2 User Data runs install.sh)
-   ├─> Install system dependencies
+   ├─> Install system dependencies and certbot
    ├─> Clone repository to ~/secure-serve
-   ├─> Generate self-signed SSL certificates
-   ├─> Configure systemd services
+   ├─> Obtain Let's Encrypt SSL certificates (jackthake.com)
+   ├─> Configure systemd services (server, reboot, cert renewal)
    └─> Build and start server
 
 2. Production Updates (git push + EC2 reboot)
    ├─> Developer pushes code to GitHub
-   ├─> Developer manually reboots EC2 instance
+   ├─> Reboot EC2 instance
    ├─> secure-serve-reboot.service triggers
    ├─> System updates (yum update)
    ├─> Git pulls latest code
@@ -88,6 +88,12 @@ This project includes a fully automated deployment pipeline for AWS EC2 instance
    ├─> secure-serve.service detects failure
    ├─> Waits 10 seconds
    └─> Automatically restarts server
+
+4. SSL Certificate Renewal (automatic)
+   ├─> certbot-renew.timer triggers (twice daily)
+   ├─> Checks if certificates need renewal (< 30 days)
+   ├─> If needed: stops server, renews certs, restarts server
+   └─> Logs renewal attempt
 ```
 
 #### Service Management
@@ -178,9 +184,39 @@ Example:
 
 ### SSL Certificates
 
-Development certificates should be placed in `./secret/`:
+#### Production (Let's Encrypt)
+
+The deployment pipeline automatically obtains and renews production SSL certificates from Let's Encrypt:
+
+- **Initial Setup**: `install.sh` uses certbot to obtain certificates for `jackthake.com` and `www.jackthake.com`
+- **Auto-Renewal**: Systemd timer runs twice daily to check and renew certificates before expiration
+- **Zero-Downtime**: Renewal process temporarily stops the server, renews certificates, and restarts automatically
+- **Certificate Location**: Certificates are symlinked from `/etc/letsencrypt/live/jackthake.com/` to `./secret/`
+
+Check certificate status:
+```bash
+# View certificate expiration
+sudo certbot certificates
+
+# Check renewal timer status
+sudo systemctl status certbot-renew.timer
+
+# View renewal logs
+sudo journalctl -u certbot-renew.service
+
+# Manually test renewal (dry-run)
+sudo certbot renew --dry-run
+```
+
+#### Development (Self-Signed)
+
+For local development, use self-signed certificates in `./secret/`:
+```bash
+openssl req -x509 -newkey rsa:4096 -keyout secret/server.key -out secret/server.crt -days 365 -nodes -subj "/CN=localhost"
+```
+
 - `server.crt` - SSL certificate
-- `server.key` - Private key (permissions: 400)
+- `server.key` - Private key
 
 ## Technical Highlights
 

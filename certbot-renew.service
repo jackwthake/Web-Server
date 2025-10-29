@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew Let's Encrypt Certificates
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/ec2-user/secure-serve/renew_certs.sh
+StandardOutput=journal
+StandardError=journal

@@ -3,7 +3,7 @@
 # Update system
 sudo yum update -y
 
-cd ~/secure-serve || exit 1
+cd /home/ec2-user/secure-serve || exit 1
 
 # download any updates from git
 git pull origin main

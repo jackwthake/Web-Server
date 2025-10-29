@@ -1,0 +1,15 @@
+[Unit]
+Description=Timer for Let's Encrypt Certificate Renewal
+Requires=certbot-renew.service
+
+[Timer]
+# Run twice daily at 3am and 3pm
+OnCalendar=*-*-* 03,15:00:00
+# Run 5 minutes after boot if we missed a scheduled run
+OnBootSec=5min
+# Randomize by up to 1 hour to avoid load spikes
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
