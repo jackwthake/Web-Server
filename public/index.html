@@ -1,10 +1,146 @@
-<html>
-    <head>
-        <script src="js/index.js"></script>
-        <link rel="stylesheet" href="css/index.css">
-        <title>index</title>
-    </head>
-    <body>
-        <h1>Hello World</h1>
-    </body>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jack Thake</title>
+</head>
+<body>
+    <h1>Jack Thake</h1>
+    <p>Systems Software Engineer</p>
+
+    <h2>Contact</h2>
+    <p>
+        <strong>Email:</strong> <a href="mailto:jackwtdev@gmail.com">jackwtdev@gmail.com</a><br>
+        <strong>GitHub:</strong> <a href="https://github.com/jackwthake" target="_blank">github.com/jackwthake</a>
+    </p>
+
+    <h2>About</h2>
+    <p>
+        I build high-performance systems software in C/C++ - from <b>3D renderers that run on ARM microcontrollers</b> to <b>multithreaded HTTPS servers built from POSIX sockets</b>. I love working close to the hardware and understanding how things work at the lowest level.
+    </p>
+    <p>
+        What drives me is the challenge of squeezing maximum performance out of limited resources and building software that interacts directly with hardware. Whether it's implementing a graphics pipeline from scratch, optimizing cache performance with careful data layout, or debugging race conditions in concurrent systems, I'm energized by problems that require deep understanding of how computers actually work. I write code that's not just functional, but efficient, maintainable, and grounded in a solid understanding of the underlying systems.
+    </p>
+    <p>
+        <b>Currently seeking entry-level roles</b> in systems programming, embedded software development, or game engine engineering where I can contribute to performance-critical codebases and continue growing my expertise in low-level software development.
+    </p>
+
+    <h2>Education</h2>
+    <p>
+        <strong>Portland State University</strong><br>
+        Computer Science coursework (Lower Division completed)<br>
+        <a href="https://github.com/jackwthake/psu-computer-science" target="_blank">github.com/jackwthake/psu-computer-science</a>
+    </p>
+    <p>
+        Completed foundational computer science courses including data structures, algorithms, object-oriented programming, and computer systems. Gained strong theoretical foundation in CS fundamentals while developing practical programming skills in C, C++, and systems-level concepts.
+    </p>
+
+    <h2>Technical Skills</h2>
+    <p>
+        <strong>Languages:</strong> C, C++, Java, Python, Javascript<br>
+        <strong>Systems Programming:</strong> POSIX APIs, Multithreading (pthreads, std::thread), Socket Programming, Memory Management, Signal Handling<br>
+        <strong>Concurrency:</strong> Mutex/Condition Variables, Atomic Operations, Lock-Free Data Structures, RAII Patterns, Thread Pools<br>
+        <strong>Graphics:</strong> 3D Rendering Pipelines, Rasterization, Texture Mapping, Shader Systems, Optimization Techniques<br>
+        <strong>Embedded Systems:</strong> ARM Cortex-M4, Microcontroller Programming, Resource-Constrained Development, Hardware Interfacing<br>
+        <strong>Networking:</strong> TCP/IP, TLS/SSL (OpenSSL), HTTP/HTTPS Protocols, Non-Blocking I/O<br>
+        <strong>Tools & Technologies:</strong> Git, CMake, GDB, Cross-Platform Development<br>
+        <strong>Development Practices:</strong> Performance Optimization, Cache Optimization, Debugging, CI/CD (GitHub Actions)
+    </p>
+
+    <h2>Projects</h2>
+
+    <div class="project">
+        <h3>shader-works</h3>
+        <p><em>C, Cross-Platform Development, Embedded Systems, Graphics Programming, Multi-threading</em></p>
+        <p><a href="https://github.com/jackwthake/shader-works" target="_blank">github.com/jackwthake/shader-works</a></p>
+
+        <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; justify-content: center;">
+            <img src="https://raw.githubusercontent.com/jackwthake/shader-works/refs/heads/main/examples/screenshots/02_textured_scene.gif" alt="Day-night cycle" style="max-width: 300px; border: 1px solid #ccc;">
+            <img src="https://raw.githubusercontent.com/jackwthake/shader-works/main/demos/microcraft/screenshots/embedded.jpeg" alt="Microcraft on embedded hardware" style="max-width: 300px; border: 1px solid #ccc;">
+        </div>
+
+        <p>
+            I built a portable 3D software renderer from scratch in pure C with zero external dependencies, achieving impressive performance of 53 FPS while rendering 8,192 triangles on modest hardware. The core library is just 1,488 lines of clean C code implementing a complete graphics pipeline including barycentric coordinate rasterization, perspective-correct texture mapping with 1/w correction for proper depth handling, z-buffering for occlusion, and frustum culling for early triangle rejection. What makes this project particularly interesting is its programmable shader system—using function pointers, I created a flexible vertex and fragment shader architecture that provides rich context access (camera data, lighting, timing) allowing dynamic visual effects without recompilation.
+        </p>
+
+        <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; justify-content: center;">
+            <img src="/img/embedded_cube.gif" alt="3D renderer running on embedded hardware" style="max-width: 400px; border: 1px solid #ccc;">
+        </div>
+
+        <p>
+            The renderer demonstrates true portability: the identical rendering code runs seamlessly on Linux, macOS, and Windows desktops, but also on ARM Cortex-M4 microcontrollers with just 200MHz clock speed and 192KB of RAM, driving 160x128 TFT displays. To maximize performance, I engineered a multi-threaded work-stealing architecture using atomic operations for lock-free triangle distribution across CPU cores, achieving near-linear performance scaling. The codebase is heavily optimized for cache efficiency with interleaved vertex data layouts, leverages the restrict keyword for compiler vectorization, and uses integer arithmetic in rasterization hot paths where precision allows.
+        </p>
+
+        <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; justify-content: center;">
+            <img src="https://raw.githubusercontent.com/jackwthake/shader-works/main/demos/tundra/screenshots/gameplay.gif" alt="Tundra demo gameplay" style="max-width: 300px; border: 1px solid #ccc;">
+            <img src="https://raw.githubusercontent.com/jackwthake/shader-works/main/demos/microcraft/screenshots/screenshot.png" alt="Microcraft demo gameplay" style="max-width: 300px; border: 1px solid #ccc;">
+        </div>
+
+        <p>
+            I developed two sophisticated demos showcasing the engine's capabilities. Tundra features an infinite procedural terrain system using multi-octave fractal Brownian motion for realistic landscape generation, with chunk streaming managed by spatial hash tables for constant memory usage. It includes dynamic day/night cycles with interpolated sky colors, real-time weather particle systems, and a clean finite state machine architecture for game logic. The Microcraft demo is a voxel-based world renderer that I successfully deployed on SAMD51 embedded hardware, complete with a custom texture atlas baking pipeline and UF2 bootloader deployment workflow, proving the engine's viability for resource-constrained embedded applications.
+        </p>
+    </div>
+
+    <div class="project">
+        <h3>secure-serve</h3>
+        <p><em>C++17, POSIX Sockets, TLS/SSL, Multithreading, Systems Programming</em></p>
+        <p><a href="https://github.com/jackwthake/secure-serve" target="_blank">github.com/jackwthake/secure-serve</a></p>
+        <p>
+            I engineered a production-grade HTTPS web server in modern C++17 (515 lines) implementing the full network stack from POSIX sockets through TLS/SSL encryption using OpenSSL 3.0+. The server features a sophisticated dynamic thread pool architecture that automatically scales to match the system's CPU core count using std::thread::hardware_concurrency(), ensuring optimal throughput without manual tuning. The concurrency model uses a mutex-protected job queue with condition variables for efficient work distribution, and I employed RAII-based scoped locking patterns throughout to prevent deadlocks while minimizing lock contention.
+        </p>
+        <p>
+            Memory safety was a key design consideration—I implemented custom smart pointer deleters for OpenSSL resources (SSL_CTX), guaranteeing zero resource leaks even during exception unwinding scenarios. The server's routing architecture uses a whitelist-based system with all content pre-loaded into memory at startup, which simultaneously prevents path traversal attacks (a common web server vulnerability) and eliminates disk I/O latency on every request. I also implemented sophisticated SSL handshake error handling with detailed per-connection logging that includes OpenSSL error codes and client IP addresses, making debugging production issues straightforward.
+        </p>
+        <p>
+            Throughout the codebase, I leveraged modern C++17 features to write clean, safe code: std::optional provides type-safe null handling without raw pointers, std::reference_wrapper enables efficient returns without unnecessary copying, and std::function allows flexible callback patterns in the job queue. The project demonstrates professional development practices with GitHub Actions CI/CD integration and CodeQL security analysis for continuous vulnerability scanning, ensuring code quality and security are maintained across all changes.
+        </p>
+        <p>
+            <strong>This portfolio site is currently being served by secure-serve</strong>, demonstrating the server's real-world reliability and performance in production use.
+        </p>
+    </div>
+
+    <div class="project">
+        <h3>Tiny-Serial</h3>
+        <p><em>C89, POSIX, Serial Communication, Terminal I/O, Systems Programming</em></p>
+        <p><a href="https://github.com/jackwthake/Tiny-Serial" target="_blank">github.com/jackwthake/Tiny-Serial</a></p>
+
+        <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; justify-content: center;">
+            <img src="https://raw.githubusercontent.com/jackwthake/Tiny-Serial/master/img/screenshot.png" alt="Tiny-Serial terminal interface with ASCII art banner" style="max-width: 500px; border: 1px solid #ccc;">
+        </div>
+
+        <p>
+            I created a minimal serial port monitor in strict ANSI C89 (just 140 lines) with zero external dependencies, compiling to an incredibly efficient 17KB binary. The tool implements the low-level POSIX termios API for raw serial communication, carefully configuring non-blocking I/O with proper flag management—disabling canonical mode, echo, and signal processing—to correctly handle binary data without corruption. Rather than using complex select() or epoll() machinery, I engineered a clean bidirectional non-blocking communication pattern using simple polling that elegantly handles simultaneous serial port reading and user keyboard input.
+        </p>
+        <p>
+            The terminal UI uses ANSI escape sequences to provide color-coded output: bright green for incoming serial data and default color for user input, giving immediate visual distinction that's invaluable during debugging sessions. I implemented proper signal handling for graceful shutdown on SIGINT (Ctrl+C) with careful resource cleanup to prevent serial port corruption and leaks. The tool achieves sub-millisecond latency through unbuffered output (setbuf(stdout, NULL)) and byte-by-byte processing with immediate display, making it perfect for real-time Arduino and microcontroller debugging. Baud rates are configurable via command-line arguments with sensible defaults (9600), fitting naturally into embedded development workflows.
+        </p>
+    </div>
+
+    <div class="project">
+        <h3>Z80 Single Board Computer</h3>
+        <p><em>Hardware Design, Assembly, Digital Logic</em></p>
+        
+        <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; justify-content: center;">
+            <img src="/img/z80.JPG" alt="Z80 Single Board Computer" style="max-width: 500px; border: 1px solid #ccc;">
+        </div>
+        <p style="text-align: center; font-style: italic; color: #666; margin-top: -5px; font-size: 0.9em;">
+            Custom Z80 single board computer during assembly and testing phase
+        </p>
+
+        <p>
+            I designed and assembled a custom Z80-based computer from discrete components, implementing serial communication and GPIO functionality from scratch. Working at the lowest level of computing, I programmed a bootloader and test routines in Z80 assembly language, gaining hands-on experience with memory mapping, interrupt handling, and direct hardware control. This project deepened my understanding of how software and hardware interact at the most fundamental level.
+        </p>
+    </div>
+
+    <footer style="margin-top: 50px; padding: 20px 0; border-top: 1px solid #ccc; text-align: center; color: #666;">
+        <p>
+            © 2025 Jack Thake |
+            <a href="mailto:jackwtdev@gmail.com">jackwtdev@gmail.com</a> |
+            <a href="https://github.com/jackwthake" target="_blank">GitHub</a>
+        </p>
+        <p style="font-size: 0.9em; margin-top: 10px;">
+            Built with passion bit by bit
+        </p>
+    </footer>
+</body>
 </html>
