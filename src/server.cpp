@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <thread>
 #include <stdexcept>
 
@@ -266,18 +267,27 @@ void https_server::populate_router() {
   }
 
   // read each route into memory
-  std::string route;
-  while (std::getline(fp, route, ' ')) {
-    if (route.empty()) break;  // Skip empty lines
-
-    file_info file;
-    if (!std::getline(fp, file.path, ' ')) {
-      log_info("ERROR: Invalid routing.conf format - missing file path");
-      break;
+  std::string line;
+  while (std::getline(fp, line)) {
+    // Skip empty lines and lines with only whitespace
+    if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos) {
+      continue;
     }
-    if (!std::getline(fp, file.MIME_type, '\n')) {
-      log_info("ERROR: Invalid routing.conf format - missing MIME type");
-      break;
+
+    // Skip comment lines (lines starting with #)
+    size_t first_char = line.find_first_not_of(" \t");
+    if (first_char != std::string::npos && line[first_char] == '#') {
+      continue;
+    }
+
+    // Parse the line: route path mime-type
+    std::istringstream iss(line);
+    std::string route;
+    file_info file;
+
+    if (!(iss >> route >> file.path >> file.MIME_type)) {
+      log_info("ERROR: Invalid routing.conf format on line: %s", line.c_str());
+      continue;
     }
 
     // load file content
