@@ -58,9 +58,67 @@ This project demonstrates advanced C++ systems programming concepts including ne
 - **`job_t`**: Request job structure passed to worker threads
 - **Routing System**: Hash-map based URL-to-file routing with pre-loaded content for security
 
-## Building & Running
+## Deployment
 
-### Prerequisites
+### Automated EC2 Deployment Pipeline
+
+This project includes a fully automated deployment pipeline for AWS EC2 instances with zero-downtime updates and automatic crash recovery.
+
+#### Deployment Workflow
+
+```
+1. Initial Launch (EC2 User Data runs install.sh)
+   ├─> Install system dependencies
+   ├─> Clone repository to ~/secure-serve
+   ├─> Generate self-signed SSL certificates
+   ├─> Configure systemd services
+   └─> Build and start server
+
+2. Production Updates (git push + EC2 reboot)
+   ├─> Developer pushes code to GitHub
+   ├─> Developer manually reboots EC2 instance
+   ├─> secure-serve-reboot.service triggers
+   ├─> System updates (yum update)
+   ├─> Git pulls latest code
+   ├─> CMake rebuilds project
+   └─> Server restarts with new version
+
+3. Crash Recovery (automatic)
+   ├─> Server process crashes/exits
+   ├─> secure-serve.service detects failure
+   ├─> Waits 10 seconds
+   └─> Automatically restarts server
+```
+
+#### Service Management
+
+```bash
+# Check server status
+sudo systemctl status secure-serve.service
+
+# View real-time server logs
+sudo journalctl -u secure-serve.service -f
+
+# View deployment logs
+sudo journalctl -u secure-serve-reboot.service
+
+# Manual server restart
+sudo systemctl restart secure-serve.service
+
+# Manual deployment (without reboot)
+sudo systemctl start secure-serve-reboot.service
+```
+
+#### Benefits
+
+- **Zero-touch deployments**: Push code and reboot - no SSH required
+- **Automatic recovery**: Server crashes are handled without manual intervention
+- **Always up-to-date**: System updates applied on every reboot
+- **Production-ready**: Proper service management with logging and monitoring
+
+### Manual Local Build
+
+#### Prerequisites
 
 ```bash
 # Ubuntu/Debian
@@ -70,7 +128,7 @@ sudo apt-get install build-essential cmake libssl-dev
 sudo dnf install gcc-c++ cmake openssl-devel
 ```
 
-### Build
+#### Build
 
 ```bash
 git clone https://github.com/jackwthake/Web-Server
@@ -110,8 +168,10 @@ Routes are defined in `routing.conf` with the format:
 
 Example:
 ```
+# comments are supported
 / ./public/index.html text/html
 /404 ./public/404.html text/html
+
 /css/style.css ./public/css/style.css text/css
 /js/app.js ./public/js/app.js application/javascript
 ```
@@ -149,9 +209,12 @@ Development certificates should be placed in `./secret/`:
 
 Server logs are written to `server.log` with timestamps:
 ```
-[10/25/25 01:42:30]: SERVER: Server initialised using file descriptor 3, on port 443
-[10/25/25 01:42:35]: SERVER: INCOMING CONNECTION: 127.0.0.1   GET /
-[10/25/25 01:42:40]: ROUTER: Attached route / to file path ./public/index.html
+[10/29/25 11:05:22]: THREAD POOl: Creating thread pool of size: 4
+[10/29/25 11:05:22]: ROUTER: Attached route / to file path ./public/index.html.
+[10/29/25 11:05:22]: ROUTER: Attached route /404 to file path ./public/404.html.
+[10/29/25 11:05:22]: ROUTER: Attached route /css/style.css to file path ./public/css/style.css.
+[10/29/25 11:05:22]: SERVER: Server intialised using file descriptor 4, on port 443
+
 ```
 
 ## License

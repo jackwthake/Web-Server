@@ -12,4 +12,6 @@ git pull origin main
 cd build || exit 1
 cmake -B . -S ..
 cmake --build .
-sudo ./serve &
+
+# Restart the server service
+sudo systemctl restart secure-serve.service
