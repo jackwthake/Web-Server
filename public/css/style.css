@@ -182,6 +182,10 @@ strong {
     transform: scale(1.05);
 }
 
+.image-container img.large-image {
+    max-width: 600px;
+}
+
 .image-caption {
     text-align: center;
     font-style: italic;
@@ -233,5 +237,9 @@ footer a {
 
     .image-container img {
         max-width: 100%;
+    }
+
+    .image-container img.large-image {
+        max-width: 80%;
     }
 }
