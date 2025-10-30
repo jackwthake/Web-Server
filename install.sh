@@ -16,6 +16,7 @@ sudo yum install gcc-c++ make git cmake openssl-devel -y
 sudo yum install -y certbot
 cd ~
 git clone https://github.com/jackwthake/secure-serve.git
+git config --global --add safe.directory /home/ec2-user/secure-serve
 cd secure-serve/
 
 # Make scripts executable
