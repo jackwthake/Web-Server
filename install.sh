@@ -14,10 +14,11 @@ sudo yum install gcc-c++ make git cmake openssl-devel -y
 
 # Install certbot for Let's Encrypt SSL certificates
 sudo yum install -y certbot
-cd ~
-git clone https://github.com/jackwthake/secure-serve.git
-git config --global --add safe.directory /home/ec2-user/secure-serve
-cd secure-serve/
+
+# Clone repo as ec2-user to their home directory
+sudo -u ec2-user git clone https://github.com/jackwthake/secure-serve.git /home/ec2-user/secure-serve
+sudo -u ec2-user git config --global --add safe.directory /home/ec2-user/secure-serve
+cd /home/ec2-user/secure-serve
 
 # Make scripts executable
 sudo chmod +x on_reboot.sh
@@ -50,8 +51,8 @@ sudo systemctl start certbot-renew.timer
 sudo certbot certonly --standalone --non-interactive --agree-tos --email jackthake@hotmail.com \
   -d jackthake.com -d www.jackthake.com --http-01-port 80
 
-# Create secret directory and symlink to Let's Encrypt certificates
-mkdir -p secret
+# Create secret directory and symlink to Let's Encrypt certificates (as ec2-user)
+sudo -u ec2-user mkdir -p secret
 sudo ln -sf /etc/letsencrypt/live/jackthake.com/fullchain.pem secret/server.crt
 sudo ln -sf /etc/letsencrypt/live/jackthake.com/privkey.pem secret/server.key
 
@@ -61,10 +62,11 @@ sudo chmod 755 /etc/letsencrypt/archive
 sudo chmod 755 /etc/letsencrypt/live/jackthake.com
 sudo chmod 755 /etc/letsencrypt/archive/jackthake.com
 
-# Build and start server
-mkdir logs && mkdir build && cd build
-cmake ..
-cmake --build .
+# Build and start server (as ec2-user)
+sudo -u ec2-user mkdir -p logs build
+cd build
+sudo -u ec2-user cmake ..
+sudo -u ec2-user cmake --build .
 
 # Start the server service
 sudo systemctl start secure-serve.service
