@@ -13,5 +13,5 @@ sudo certbot renew --standalone --http-01-port 80
 sudo systemctl start secure-serve.service
 
 # Log the renewal attempt
-echo "[$(date '+%m/%d/%y %H:%M:%S')]: Certificate renewal attempted" >> ~/secure-serve/cert_renewal.log
-echo "[$(date '+%m/%d/%y %H:%M:%S')]: CERT: Certificate renewal attempted" >> ~/secure-serve/build/server.log
+echo "[$(date '+%m/%d/%y %H:%M:%S')]: Certificate renewal attempted" >> ~/secure-serve/logs/cert_renewal.log
+echo "[$(date '+%m/%d/%y %H:%M:%S')]: CERT: Certificate renewal attempted" >> ~/secure-serve/logs/server.log

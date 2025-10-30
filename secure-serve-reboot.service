@@ -4,6 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
+User=ec2-user
 ExecStart=/home/ec2-user/secure-serve/on_reboot.sh
 RemainAfterExit=yes
 StandardOutput=journal

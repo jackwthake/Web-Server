@@ -62,7 +62,7 @@ sudo chmod 755 /etc/letsencrypt/live/jackthake.com
 sudo chmod 755 /etc/letsencrypt/archive/jackthake.com
 
 # Build and start server
-mkdir build && cd build
+mkdir logs && mkdir build && cd build
 cmake ..
 cmake --build .
 

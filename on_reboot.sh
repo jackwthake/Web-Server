@@ -1,17 +1,28 @@
 #!/bin/bash
 
-# Update system
-sudo yum update -y
+LOGFILE="$HOME/secure-serve/logs/reboot.log"
 
-cd /home/ec2-user/secure-serve || exit 1
+echo "=== Reboot script started at $(date) ===" >> "$LOGFILE"
 
-# download any updates from git
-git pull origin main
+# Update system (needs sudo)
+echo "Updating system..." >> "$LOGFILE"
+sudo yum update -y >> "$LOGFILE" 2>&1
+
+cd "$HOME/secure-serve" || exit 1
+
+# download any updates from git (no sudo needed as ec2-user)
+echo "Pulling latest code from GitHub..." >> "$LOGFILE"
+git pull origin main >> "$LOGFILE" 2>&1
 
 # rebuild and run server
 cd build || exit 1
-cmake -B . -S ..
-cmake --build .
+echo "Building server..." >> "$LOGFILE"
+cmake -B . -S .. >> "$LOGFILE" 2>&1
+cmake --build . >> "$LOGFILE" 2>&1
 
-# Restart the server service
-sudo systemctl restart secure-serve.service
+# Restart the server service (needs sudo)
+echo "Restarting server service..." >> "$LOGFILE"
+sudo systemctl restart secure-serve.service >> "$LOGFILE" 2>&1
+
+echo "=== Reboot script completed at $(date) ===" >> "$LOGFILE"
+echo "" >> "$LOGFILE"

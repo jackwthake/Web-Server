@@ -7,7 +7,7 @@
 
 #define LINE_BUF_SIZE 256
 
-static std::fstream file("server.log", std::fstream::app);
+static std::fstream file("../logs/server.log", std::fstream::app);
 static std::mutex log_mutex;
 
 
