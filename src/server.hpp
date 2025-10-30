@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <memory>
 #include <optional>
+#include <atomic>
 
 #include <openssl/ssl.h>
 #include <netinet/in.h> // struct sockaddr_in
@@ -21,6 +22,12 @@ class https_server {
     ~https_server();
 
     std::optional<std::reference_wrapper<const file_info>> get_endpoint(const std::string &path) const;
+    size_t get_thread_count() const { return pool.get_thread_count(); }
+
+    const time_t start_time;
+    mutable std::atomic<unsigned long> total_requests{0};
+    mutable std::atomic<unsigned long> valid_request_count{0};
+    mutable std::atomic<unsigned long> successful_request_count{0};
   private:
     int create_server_socket();
     void main_loop();

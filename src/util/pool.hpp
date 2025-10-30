@@ -34,6 +34,7 @@ class thread_pool {
 
     void queue_job(const job_t &job);
     bool is_busy(void);
+    size_t get_thread_count() const { return threads.size(); }
   private:
     void thread_loop(void);
 

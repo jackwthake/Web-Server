@@ -5,12 +5,15 @@
 #include <sstream>
 #include <thread>
 #include <stdexcept>
+#include <chrono>
+#include <iomanip>
 
 #include <unistd.h>
 #include <cstring>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/utsname.h>
 #include <arpa/inet.h>
 #include <openssl/err.h>
 
@@ -63,7 +66,7 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 
   /* loop through the request */
   for (size_t i = 0; i < strlen(data); ++i) {
-    if (!found_method) { 
+    if (!found_method) {
       if (!isspace(data[i]))
         method += data[i];
       else
@@ -77,6 +80,77 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
   }
 }
 
+// Get OS information from /etc/os-release
+static std::string get_os_info() {
+  std::ifstream os_release("/etc/os-release");
+  std::string line;
+
+  while (std::getline(os_release, line)) {
+    if (line.find("PRETTY_NAME=") == 0) {
+      // Extract value between quotes
+      size_t first = line.find('"');
+      size_t last = line.rfind('"');
+      if (first != std::string::npos && last != std::string::npos && first != last) {
+        return line.substr(first + 1, last - first - 1);
+      }
+    }
+  }
+  return "Unknown";
+}
+
+// Format uptime in seconds to readable string (e.g., "2d 3h 15m 30s")
+static std::string format_uptime(time_t uptime_seconds) {
+  auto duration = std::chrono::seconds(uptime_seconds);
+
+  auto hours = std::chrono::duration_cast<std::chrono::hours>(duration);
+  duration -= hours;
+  auto minutes = std::chrono::duration_cast<std::chrono::minutes>(duration);
+  duration -= minutes;
+  auto seconds = std::chrono::duration_cast<std::chrono::seconds>(duration);
+
+  auto days = hours.count() / 24;
+  auto remaining_hours = hours.count() % 24;
+
+  std::string result;
+  if (days > 0) result += std::to_string(days) + "d ";
+  if (remaining_hours > 0) result += std::to_string(remaining_hours) + "h ";
+  if (minutes.count() > 0) result += std::to_string(minutes.count()) + "m ";
+  result += std::to_string(seconds.count()) + "s";
+
+  return result;
+}
+
+// Handle the /status endpoint, returning server statistics in JSON format
+static void handle_status_endpoint(const https_server *server, std::string &response, struct in_addr &client_addr) {
+  // Get system info
+  struct utsname sys_info;
+  uname(&sys_info);
+  std::string os_name = get_os_info();
+
+  time_t uptime_seconds = time(nullptr) - server->start_time;
+  std::string uptime_str = format_uptime(uptime_seconds);
+
+  std::string body = "{\n";
+  body +=            "  \"uptime\": \"" + uptime_str + "\",\n";
+  body +=            "  \"platform\": \"" + std::string(sys_info.sysname) + "\",\n";
+  body +=            "  \"os_version\": \"" + os_name + "\",\n";
+  body +=            "  \"thread_count\": " + std::to_string(server->get_thread_count()) + ",\n";
+  body +=            "  \"total_requests\": " + std::to_string(server->total_requests) + ",\n";
+  body +=            "  \"valid_requests\": " + std::to_string(server->valid_request_count) + ",\n";
+  body +=            "  \"successful_requests\": " + std::to_string(server->successful_request_count) + "\n";
+  body +=            "}\n";
+
+  add_response_code(response, 200, "OK");
+  add_header(response, "Content-Type", "application/json");
+  add_body(response, body);
+
+  // Count this as valid and successful (200 OK)
+  server->valid_request_count++;
+  server->successful_request_count++;
+
+  log_info("SERVER: INCOMING CONNECTION: %12s GET /status -> 200 OK", inet_ntoa(client_addr));
+}
+
 
 /*****************************
  * Request handling functions
@@ -84,6 +158,11 @@ static void get_req_info(const std::string &req, std::string &method, std::strin
 
 //  handles one get request, querying the router, building an adequate response
 static void handle_get_request(const https_server *server, std::string &response, std::string &path, struct in_addr &client_addr) {
+  if (path.compare("/status") == 0) {
+    handle_status_endpoint(server, response, client_addr);
+    return;
+  }
+
   auto file = server->get_endpoint(path); // attempt to find route
 
   if (file.has_value()) { // route found, send contents
@@ -91,6 +170,10 @@ static void handle_get_request(const https_server *server, std::string &response
     add_response_code(response, 200, "OK");
     add_header(response, "Content-Type", file_info.MIME_type);
     add_body(response, file_info.contents);
+
+    // Count this as valid and successful (200 OK)
+    server->valid_request_count++;
+    server->successful_request_count++;
 
     log_info("SERVER: INCOMING CONNECTION: %12s GET %s -> 200 OK", inet_ntoa(client_addr), path.c_str());
   } else { // no route found in config
@@ -108,6 +191,9 @@ static void handle_get_request(const https_server *server, std::string &response
       add_body(response, "404 - Page Not Found");
     }
 
+    // Count this as valid but not successful (404)
+    server->valid_request_count++;
+
     log_info("SERVER: INCOMING CONNECTION: %12s GET %s -> 404 ERR NOT FOUND", inet_ntoa(client_addr), path.c_str());
   }
 }
@@ -119,13 +205,16 @@ static void handle_connection(job_t::info_t job_info) {
   char recv_buf[MAX_LINE + 1];
   int n;
 
+  // Increment total requests for every connection attempt
+  job_info.server->total_requests++;
+
   /* read in request */
   memset(recv_buf, 0x00, MAX_LINE + 1);
   while ((n = SSL_read(job_info.ssl, recv_buf, MAX_LINE)) > 0) {
     request.append(recv_buf, n);
     if (recv_buf[n - 1] == '\n') // check for end of request
       break;
-    
+
     memset(recv_buf, 0x00, MAX_LINE);
   }
 
@@ -141,6 +230,9 @@ static void handle_connection(job_t::info_t job_info) {
     add_header(response, "Content-Type", "text/plain");
     add_header(response, "Allow", "GET");
     add_body(response, "405 - Method Not Allowed");
+
+    // 405 is a valid response to a malformed/unsupported request
+    job_info.server->valid_request_count++;
 
     const char* log_method = method.empty() ? "<empty>" : method.c_str();
     const char* log_path = path.empty() ? "<empty>" : path.c_str();
@@ -162,7 +254,7 @@ static void handle_connection(job_t::info_t job_info) {
  * https_server class implementation
 **************************************/
 
-https_server::https_server() { 
+https_server::https_server() : start_time(time(nullptr)) {
   this->populate_router();
   this->create_SSL_context();
   this->configure_SSL_context();
@@ -171,7 +263,8 @@ https_server::https_server() {
   this->main_loop();
 }
 
-https_server::~https_server() { 
+https_server::~https_server() {
+  log_info("SERVER: Cleaning up resources and closing connections");
   close(this->socket_fd);
   close_log_file();
 }
