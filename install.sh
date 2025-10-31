@@ -46,21 +46,38 @@ sudo systemctl enable secure-serve.service
 sudo systemctl enable certbot-renew.timer
 sudo systemctl start certbot-renew.timer
 
+# Read domain from config file
+DOMAIN=$(grep "^domain=" secure-serve.conf | cut -d'=' -f2 | tr -d ' ')
+if [ -z "$DOMAIN" ]; then
+    echo "ERROR: domain not found in secure-serve.conf"
+    exit 1
+fi
+
+# Read email from environment variable (must be set in user_data.sh)
+EMAIL="$SECURE_SERVE_EMAIL"
+if [ -z "$EMAIL" ]; then
+    echo "ERROR: SECURE_SERVE_EMAIL environment variable must be set"
+    exit 1
+fi
+
+echo "Using domain: $DOMAIN"
+echo "Using email: $EMAIL"
+
 # Obtain Let's Encrypt SSL certificates
 # Certbot will use port 80 for verification, then we'll use certs with our HTTPS server on port 443
-sudo certbot certonly --standalone --non-interactive --agree-tos --email jackthake@hotmail.com \
-  -d jackthake.com -d www.jackthake.com --http-01-port 80
+sudo certbot certonly --standalone --non-interactive --agree-tos --email "$EMAIL" \
+  -d "$DOMAIN" -d "www.$DOMAIN" --http-01-port 80
 
 # Create secret directory and symlink to Let's Encrypt certificates (as ec2-user)
 sudo -u ec2-user mkdir -p secret
-sudo ln -sf /etc/letsencrypt/live/jackthake.com/fullchain.pem secret/server.crt
-sudo ln -sf /etc/letsencrypt/live/jackthake.com/privkey.pem secret/server.key
+sudo ln -sf "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" secret/server.crt
+sudo ln -sf "/etc/letsencrypt/live/$DOMAIN/privkey.pem" secret/server.key
 
 # Make certificate directories readable (needed for server to access certs)
 sudo chmod 755 /etc/letsencrypt/live
 sudo chmod 755 /etc/letsencrypt/archive
-sudo chmod 755 /etc/letsencrypt/live/jackthake.com
-sudo chmod 755 /etc/letsencrypt/archive/jackthake.com
+sudo chmod 755 "/etc/letsencrypt/live/$DOMAIN"
+sudo chmod 755 "/etc/letsencrypt/archive/$DOMAIN"
 
 # Build and start server (as ec2-user)
 sudo -u ec2-user mkdir -p logs build

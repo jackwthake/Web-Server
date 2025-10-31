@@ -5,12 +5,16 @@
 #include "log.hpp"
 
 
-// Creates the thread pool, populates the pool with as many threads as possible
-thread_pool::thread_pool() {
-  const uint32_t num_threads = std::thread::hardware_concurrency(); // get max number of threads
+// Creates the thread pool, populates the pool with specified or max threads
+thread_pool::thread_pool(int requested_threads) {
+  // Use hardware concurrency if 0 or invalid value provided
+  uint32_t num_threads = (requested_threads > 0)
+    ? static_cast<uint32_t>(requested_threads)
+    : std::thread::hardware_concurrency();
+
   this->threads.resize(num_threads); // resize threads vector
 
-  log_info("THREAD POOl: Creating thread pool of size: %u", num_threads);
+  log_info("THREAD POOL: Creating thread pool of size: %u", num_threads);
   for (auto &thread : this->threads) {
     thread = std::thread(&thread_pool::thread_loop, this); // initialise every thread
   }

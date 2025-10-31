@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <memory>
 #include <optional>
+#include <variant>
 #include <atomic>
 
 #include <openssl/ssl.h>
@@ -22,7 +23,7 @@ class https_server {
     ~https_server();
 
     std::optional<std::reference_wrapper<const file_info>> get_endpoint(const std::string &path) const;
-    size_t get_thread_count() const { return pool.get_thread_count(); }
+    size_t get_thread_count() const { return pool->get_thread_count(); }
 
     const time_t start_time;
     mutable std::atomic<unsigned long> total_requests{0};
@@ -35,8 +36,9 @@ class https_server {
     void create_SSL_context();
     void configure_SSL_context();
     void populate_router();
+    void populate_config();
 
-    thread_pool pool;
+    std::unique_ptr<thread_pool> pool;
 
     // Custom deleter for SSL_CTX
     struct SSL_CTX_Deleter {
@@ -48,6 +50,9 @@ class https_server {
 
     int socket_fd;
     std::unordered_map<std::string, file_info> routing;
+
+    using config_value_t = std::variant<std::string, int>;
+    std::unordered_map<std::string, config_value_t> config;
 };
 
 #endif

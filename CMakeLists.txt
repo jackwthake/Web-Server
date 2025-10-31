@@ -48,9 +48,18 @@ endif()
 file(COPY ${CMAKE_SOURCE_DIR}/public
      DESTINATION ${CMAKE_BINARY_DIR})
 
+# Copy config file to build directory (if it exists)
+if(EXISTS ${CMAKE_SOURCE_DIR}/secure-serve.conf)
+    file(COPY ${CMAKE_SOURCE_DIR}/secure-serve.conf
+         DESTINATION ${CMAKE_BINARY_DIR})
+endif()
+
 # Installation rules
 install(TARGETS serve DESTINATION bin)
 install(FILES routing.conf DESTINATION bin)
+if(EXISTS ${CMAKE_SOURCE_DIR}/secure-serve.conf)
+    install(FILES secure-serve.conf DESTINATION bin)
+endif()
 if(EXISTS ${CMAKE_SOURCE_DIR}/secret)
     install(DIRECTORY secret DESTINATION bin)
 endif()

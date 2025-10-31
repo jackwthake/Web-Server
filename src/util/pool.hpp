@@ -29,7 +29,7 @@ struct job_t {
 
 class thread_pool {
   public:
-    thread_pool();
+    thread_pool(int num_threads = 0); // 0 = use hardware_concurrency
     ~thread_pool();
 
     void queue_job(const job_t &job);

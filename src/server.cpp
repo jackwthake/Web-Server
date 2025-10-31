@@ -20,10 +20,7 @@
 #include "util/pool.hpp"
 #include "util/log.hpp"
 
-#define ROUTER_CONFIG_PATH "./public/endpoints.conf"
 #define MAX_LINE            4096
-#define BACKLOG             10
-#define PORT                443
 
 
 /*****************************
@@ -216,11 +213,12 @@ static void handle_connection(job_t::info_t job_info) {
   memset(recv_buf, 0x00, MAX_LINE + 1);
   while ((n = SSL_read(job_info.ssl, recv_buf, MAX_LINE)) > 0) {
     request.append(recv_buf, n);
+    recv_bytes += n;
+
     if (recv_buf[n - 1] == '\n') // check for end of request
       break;
 
     memset(recv_buf, 0x00, MAX_LINE);
-    recv_bytes += n;
   }
 
   if (recv_bytes <= 0) {
@@ -270,6 +268,12 @@ static void handle_connection(job_t::info_t job_info) {
 **************************************/
 
 https_server::https_server() : start_time(time(nullptr)) {
+  this->populate_config();
+
+  // Create thread pool with configured size
+  int thread_count = std::get<int>(this->config["thread_pool_size"]);
+  this->pool = std::make_unique<thread_pool>(thread_count);
+
   this->populate_router();
   this->create_SSL_context();
   this->configure_SSL_context();
@@ -295,26 +299,30 @@ std::optional<std::reference_wrapper<const https_server::file_info>> https_serve
 }
 
 // Create the server's listening socket
-int https_server::create_server_socket() { 
+int https_server::create_server_socket() {
   int listen_fd;
   struct sockaddr_in servaddr;
 
+  // Get config values
+  int port = std::get<int>(this->config["server_port"]);
+  int backlog = std::get<int>(this->config["backlog"]);
+
   // create the socket
   error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)), "Socket error");
-  
+
   // setup address
   bzero(&servaddr, sizeof(struct sockaddr_in));
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(PORT);
+  servaddr.sin_port = htons(port);
 
   // attempt to bind address to socket
   error_check(bind(listen_fd, (sockaddr *)&servaddr, sizeof(servaddr)), "Bind error");
-  
+
   // attempt to start listening
-  error_check(listen(listen_fd, BACKLOG), "Listen error");
-  log_info("SERVER: Server intialised using file descriptor %d, on port %d", listen_fd, PORT);
-  
+  error_check(listen(listen_fd, backlog), "Listen error");
+  log_info("SERVER: Server intialised using file descriptor %d, on port %d", listen_fd, port);
+
   return listen_fd;
 }
 
@@ -327,7 +335,7 @@ void https_server::main_loop() {
     // Accept incoming connections
     int client_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
     this->total_requests++; // increment total requests on every connection attempt
-    
+
     if (client_fd < 0) {
       log_info("SERVER: ERROR: Accept failed: %s", strerror(errno));
       continue;
@@ -356,7 +364,7 @@ void https_server::main_loop() {
         handle_connection
       };
 
-      this->pool.queue_job(job);
+      this->pool->queue_job(job);
     } else {
       /* SSL handshake failed, clean up resources */
       int ssl_error = SSL_get_error(ssl, accept_result);
@@ -386,8 +394,8 @@ void https_server::create_SSL_context() {
 
 // Load certificates and keys
 void https_server::configure_SSL_context() {
-  error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx.get(), "./secret/server.crt"), "Failed to load certificate.");
-  error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx.get(), "./secret/server.key", SSL_FILETYPE_PEM), "Unable to load key file.");
+  error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx.get(), std::get<std::string>(this->config["ssl_cert_path"]).c_str()), "Failed to load certificate.");
+  error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx.get(), std::get<std::string>(this->config["ssl_key_path"]).c_str(), SSL_FILETYPE_PEM), "Unable to load key file.");
 }
 
 // Searches the default routing config file, populating the hash map with valid routes,
@@ -396,7 +404,7 @@ void https_server::populate_router() {
   std::ifstream fp;
 
   // open routing config file
-  fp.open(ROUTER_CONFIG_PATH);
+  fp.open(std::get<std::string>(this->config["router_config_path"]));
   if (!fp) {
     throw std::runtime_error("Failed to open routing config file at path: routing.conf");
   }
@@ -437,5 +445,56 @@ void https_server::populate_router() {
     // insert route into table
     this->routing.insert({ route, file });
     log_info("ROUTER: Attached route %s to file path %s.", route.c_str(), file.path.c_str());
+  }
+}
+
+// Implementation for populating server configuration from a file or defaults
+void https_server::populate_config() {
+  std::ifstream fp;
+
+  // open config file (optional - if doesn't exist, use defaults)
+  fp.open("./secure-serve.conf");
+  if (!fp) {
+    log_info("CONFIG: No config file found, using defaults");
+    return;
+  }
+
+  // read each config line
+  std::string line;
+  while (std::getline(fp, line)) {
+    // Skip empty lines and lines with only whitespace
+    if (line.empty() || line.find_first_not_of(" \t\r\n") == std::string::npos) {
+      continue;
+    }
+
+    // Skip comment lines (lines starting with #)
+    size_t first_char = line.find_first_not_of(" \t");
+    if (first_char != std::string::npos && line[first_char] == '#') {
+      continue;
+    }
+
+    // Parse the line: key=value
+    std::istringstream iss(line);
+    std::string key, value_str;
+
+    if (!std::getline(iss, key, '=') || !std::getline(iss, value_str)) {
+      log_info("CONFIG: Invalid format on line: %s", line.c_str());
+      continue;
+    }
+
+    // Trim whitespace from key and value
+    key.erase(0, key.find_first_not_of(" \t"));
+    key.erase(key.find_last_not_of(" \t") + 1);
+    value_str.erase(0, value_str.find_first_not_of(" \t"));
+    value_str.erase(value_str.find_last_not_of(" \t") + 1);
+
+    // Try to parse as int, otherwise store as string
+    try {
+      int int_value = std::stoi(value_str);
+      this->config[key] = int_value;
+    } catch (const std::exception&) {
+      // Not an int, store as string
+      this->config[key] = value_str;
+    }
   }
 }
