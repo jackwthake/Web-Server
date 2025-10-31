@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/home/ec2-user/secure-serve/build
+ExecStartPre=/bin/mkdir -p /home/ec2-user/secure-serve/logs
 ExecStart=/home/ec2-user/secure-serve/build/serve
 Restart=always
 RestartSec=10

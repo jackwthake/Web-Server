@@ -12,7 +12,18 @@ cd "$HOME/secure-serve" || exit 1
 
 # download any updates from git (no sudo needed as ec2-user)
 echo "Pulling latest code from GitHub..." >> "$LOGFILE"
-git pull --ff-only origin main >> "$LOGFILE" 2>&1
+rm -f .git/index.lock
+
+# Ensure logs directory exists before proceeding
+mkdir -p logs
+
+# Reset branch to match remote
+git fetch origin >> "$LOGFILE" 2>&1
+git reset --hard origin/main >> "$LOGFILE" 2>&1
+
+# Remove untracked files but preserve ignored files (logs/, secret/, etc.)
+git clean -fd >> "$LOGFILE" 2>&1
+git pull origin main >> "$LOGFILE" 2>&1
 
 # rebuild and run server
 cd build || exit 1
