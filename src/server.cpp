@@ -39,6 +39,16 @@ static void error_check(int cond, const std::string msg) {
   }
 }
 
+// Wrapper for SSL shutdown and free
+static void ssl_shutdown_wrapper(SSL *ssl) {
+  if (ssl) {
+    if (SSL_shutdown(ssl) == 0) {
+      SSL_shutdown(ssl); // bidirectional shutdown
+    }
+
+    SSL_free(ssl);
+  }
+}
 
 // Add response code to response
 static void add_response_code(std::string &response, const int code, const std::string msg) { 
@@ -47,12 +57,10 @@ static void add_response_code(std::string &response, const int code, const std::
   response += " " + msg + "\n";
 }
 
-
 // Add header to response
 static void add_header(std::string &response, const std::string header_key, const std::string &header_val) { 
   response += header_key + ": " + header_val;
 }
-
 
 // Add the body to an request
 static void add_body(std::string &response, const std::string &body) { 
@@ -151,7 +159,6 @@ static void handle_status_endpoint(const https_server *server, std::string &resp
   log_info("SERVER: INCOMING CONNECTION: %12s GET /status -> 200 OK", inet_ntoa(client_addr));
 }
 
-
 /*****************************
  * Request handling functions
 ******************************/
@@ -203,10 +210,7 @@ static void handle_get_request(const https_server *server, std::string &response
 static void handle_connection(job_t::info_t job_info) {
   std::string request, response, path, method;
   char recv_buf[MAX_LINE + 1];
-  int n;
-
-  // Increment total requests for every connection attempt
-  job_info.server->total_requests++;
+  int n, recv_bytes = 0;
 
   /* read in request */
   memset(recv_buf, 0x00, MAX_LINE + 1);
@@ -216,6 +220,15 @@ static void handle_connection(job_t::info_t job_info) {
       break;
 
     memset(recv_buf, 0x00, MAX_LINE);
+    recv_bytes += n;
+  }
+
+  if (recv_bytes <= 0) {
+    log_info("SERVER: INCOMING CONNECTION: %12s - Empty or malformed request received. dropping connection.", inet_ntoa(job_info.client_addr.sin_addr));
+    ssl_shutdown_wrapper(job_info.ssl);
+    close(job_info.client_fd);
+
+    return;
   }
 
   /* Process Request */
@@ -241,11 +254,13 @@ static void handle_connection(job_t::info_t job_info) {
   }
 
   /* write response back to client */
-  SSL_write(job_info.ssl, response.c_str(), response.length());
+  int bytes = SSL_write(job_info.ssl, response.c_str(), response.length());
+  if (bytes <= 0) {
+    log_info("SERVER: ERROR: Failed to send response to client %s, %s", inet_ntoa(job_info.client_addr.sin_addr), ERR_error_string(ERR_get_error(), nullptr));
+  }
 
   /* close connection */
-  SSL_shutdown(job_info.ssl);
-  SSL_free(job_info.ssl);
+  ssl_shutdown_wrapper(job_info.ssl);
   close(job_info.client_fd);
 }
 
@@ -309,10 +324,23 @@ void https_server::main_loop() {
   socklen_t client_len = sizeof(client_addr);
 
   for (;;) {
+    // Accept incoming connections
     int client_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
+    this->total_requests++; // increment total requests on every connection attempt
+    
+    if (client_fd < 0) {
+      log_info("SERVER: ERROR: Accept failed: %s", strerror(errno));
+      continue;
+    }
 
     /* set up ssl for socket */
     SSL *ssl = SSL_new(this->ssl_ctx.get());
+    if (!ssl) {
+      log_info("SERVER: ERROR: Unable to create SSL structure for client %s, dropping connection.", inet_ntoa(client_addr.sin_addr));
+      close(client_fd);
+      continue;
+    }
+    
     SSL_set_fd(ssl, client_fd);
 
     int accept_result = SSL_accept(ssl);
