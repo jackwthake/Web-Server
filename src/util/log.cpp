@@ -38,3 +38,37 @@ void log_info(const char *fmt, ...) {
 
   va_end(args);
 }
+
+void cull_log_file(int max_size_bytes, std::string file_path) {
+  std::lock_guard<std::mutex> lock(log_mutex);
+
+  std::fstream file(file_path, std::fstream::in | std::fstream::out | std::fstream::app);
+  file.seekg(0, std::ios::end);
+  std::streampos file_size = file.tellg();
+
+  if (file_size <= max_size_bytes) {
+    return; // No need to cull
+  }
+
+  // Read the entire log file into memory
+  file.seekg(0, std::ios::beg);
+  std::string log_contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+  // Find the position to start retaining logs
+  size_t start_pos = log_contents.size() - max_size_bytes;
+  size_t new_line_pos = log_contents.find('\n', start_pos);
+
+  if (new_line_pos != std::string::npos) {
+    // Retain logs from the next line
+    log_contents = log_contents.substr(new_line_pos + 1);
+  } else {
+    // If no newline found, retain the last max_size_bytes
+    log_contents = log_contents.substr(start_pos);
+  }
+
+  // Rewrite the log file with the retained logs
+  file.close();
+  file.open("../logs/server.log", std::fstream::out | std::fstream::trunc);
+  file << log_contents;
+  file.flush();
+}

@@ -20,8 +20,8 @@
 #include "util/pool.hpp"
 #include "util/log.hpp"
 
-#define MAX_LINE            4096
-
+#define SERVER_VERSION "1.0.0"
+#define MAX_LINE 4096
 
 /*****************************
  * Static helper functions
@@ -139,6 +139,7 @@ static void handle_status_endpoint(const https_server *server, std::string &resp
   body +=            "  \"uptime\": \"" + uptime_str + "\",\n";
   body +=            "  \"platform\": \"" + std::string(sys_info.sysname) + "\",\n";
   body +=            "  \"os_version\": \"" + os_name + "\",\n";
+  body +=            "  \"server_version\": \"" + std::string(SERVER_VERSION) + "\",\n";
   body +=            "  \"thread_count\": " + std::to_string(server->get_thread_count()) + ",\n";
   body +=            "  \"total_requests\": " + std::to_string(server->total_requests) + ",\n";
   body +=            "  \"valid_requests\": " + std::to_string(server->valid_request_count) + ",\n";
@@ -271,7 +272,7 @@ https_server::https_server() : start_time(time(nullptr)) {
   this->populate_config();
 
   // Create thread pool with configured size
-  int thread_count = std::get<int>(this->config["thread_pool_size"]);
+  int thread_count = std::get<int>(this->get_config_value("thread_pool_size", 0));
   this->pool = std::make_unique<thread_pool>(thread_count);
 
   this->populate_router();
@@ -304,8 +305,8 @@ int https_server::create_server_socket() {
   struct sockaddr_in servaddr;
 
   // Get config values
-  int port = std::get<int>(this->config["server_port"]);
-  int backlog = std::get<int>(this->config["backlog"]);
+  int port = std::get<int>(this->get_config_value("server_port", 443));
+  int backlog = std::get<int>(this->get_config_value("backlog", 1000));
 
   // create the socket
   error_check((listen_fd = socket(AF_INET, SOCK_STREAM, 0)), "Socket error");
@@ -335,6 +336,12 @@ void https_server::main_loop() {
     // Accept incoming connections
     int client_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
     this->total_requests++; // increment total requests on every connection attempt
+
+    // Cull log file every 100 requests if it exceeds max size
+    if (this->total_requests % 100 == 0) {
+      cull_log_file(std::get<int>(this->get_config_value("log_max_size", 52428800))); // default 50MB
+      cull_log_file(std::get<int>(this->get_config_value("log_max_size", 52428800)), "./logs/reboot.log");
+    }
 
     if (client_fd < 0) {
       log_info("SERVER: ERROR: Accept failed: %s", strerror(errno));
@@ -394,8 +401,8 @@ void https_server::create_SSL_context() {
 
 // Load certificates and keys
 void https_server::configure_SSL_context() {
-  error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx.get(), std::get<std::string>(this->config["ssl_cert_path"]).c_str()), "Failed to load certificate.");
-  error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx.get(), std::get<std::string>(this->config["ssl_key_path"]).c_str(), SSL_FILETYPE_PEM), "Unable to load key file.");
+  error_check(SSL_CTX_use_certificate_chain_file(this->ssl_ctx.get(), std::get<std::string>(this->get_config_value("ssl_cert_path", "./secret/server.crt")).c_str()), "Failed to load certificate.");
+  error_check(SSL_CTX_use_PrivateKey_file(this->ssl_ctx.get(), std::get<std::string>(this->get_config_value("ssl_key_path", "./secret/server.key")).c_str(), SSL_FILETYPE_PEM), "Unable to load key file.");
 }
 
 // Searches the default routing config file, populating the hash map with valid routes,
@@ -404,9 +411,10 @@ void https_server::populate_router() {
   std::ifstream fp;
 
   // open routing config file
-  fp.open(std::get<std::string>(this->config["router_config_path"]));
+  std::string router_path = std::get<std::string>(this->get_config_value("router_config_path", "./public/endpoints.conf"));
+  fp.open(router_path);
   if (!fp) {
-    throw std::runtime_error("Failed to open routing config file at path: routing.conf");
+    throw std::runtime_error("Failed to open routing config file at path: " + router_path);
   }
 
   // read each route into memory
@@ -452,10 +460,10 @@ void https_server::populate_router() {
 void https_server::populate_config() {
   std::ifstream fp;
 
-  // open config file (optional - if doesn't exist, use defaults)
+  // open config file
   fp.open("./secure-serve.conf");
   if (!fp) {
-    log_info("CONFIG: No config file found, using defaults");
+    log_info("CONFIG: No config file found at ./secure-serve.conf");
     return;
   }
 
@@ -498,3 +506,15 @@ void https_server::populate_config() {
     }
   }
 }
+
+// Helper to get config value with default
+https_server::config_value_t https_server::get_config_value(const std::string &key, const config_value_t &default_value) {
+  auto it = this->config.find(key);
+  
+  if (it != this->config.end()) {
+    return it->second;
+  }
+
+  return default_value;
+}
+

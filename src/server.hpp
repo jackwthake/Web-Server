@@ -53,6 +53,8 @@ class https_server {
 
     using config_value_t = std::variant<std::string, int>;
     std::unordered_map<std::string, config_value_t> config;
+
+    config_value_t get_config_value(const std::string &key, const config_value_t &default_value);
 };
 
 #endif
