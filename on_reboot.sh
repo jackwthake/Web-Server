@@ -26,6 +26,7 @@ git clean -fd >> "$LOGFILE" 2>&1
 git pull origin main >> "$LOGFILE" 2>&1
 
 # rebuild and run server
+mkdir -p build
 cd build || exit 1
 echo "Building server..." >> "$LOGFILE"
 cmake -B . -S .. >> "$LOGFILE" 2>&1

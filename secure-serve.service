@@ -1,11 +1,13 @@
 [Unit]
 Description=Secure Serve HTTPS Server
-After=network.target
+After=network.target secure-serve-reboot.service
+Wants=secure-serve-reboot.service
 
 [Service]
 Type=simple
 WorkingDirectory=/home/ec2-user/secure-serve/build
 ExecStartPre=/bin/mkdir -p /home/ec2-user/secure-serve/logs
+ExecStartPre=/bin/sh -c '[ -f /home/ec2-user/secure-serve/build/serve ] || exit 1'
 ExecStart=/home/ec2-user/secure-serve/build/serve
 Restart=always
 RestartSec=10
