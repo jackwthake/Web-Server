@@ -108,6 +108,13 @@ static std::string get_os_info() {
   return "Unknown";
 }
 
+// Format Unix timestamp to readable date string (e.g., "Oct 31 2025 15:58:32")
+static std::string format_timestamp(time_t timestamp) {
+  char buffer[32];
+  std::strftime(buffer, sizeof(buffer), "%b %d %Y %H:%M:%S", std::localtime(&timestamp));
+  return std::string(buffer);
+}
+
 // Format uptime in seconds to readable string (e.g., "2d 3h 15m 30s")
 static std::string format_uptime(time_t uptime_seconds) {
   auto duration = std::chrono::seconds(uptime_seconds);
@@ -219,12 +226,13 @@ void handle_status_endpoint(const https_server *server, std::string &response, s
   std::string uptime_str = format_uptime(uptime_seconds);
 
   std::string body = "{\n";
-  body +=            "  \"uptime\": \"" + uptime_str + "\",\n";
   body +=            "  \"platform\": \"" + std::string(sys_info.sysname) + "\",\n";
   body +=            "  \"os_version\": \"" + os_name + "\",\n";
   body +=            "  \"server_version\": \"" + std::string(SERVER_VERSION) + "\",\n";
   body +=            "  \"git_commit\": \"" + std::string(GIT_COMMIT_HASH) + "\",\n";
   body +=            "  \"last_updated\": \"" + std::string(__DATE__) + " " + std::string(__TIME__) + "\",\n";
+  body +=            "  \"uptime\": \"" + uptime_str + "\",\n";
+  body +=            "  \"start_time\": \"" + format_timestamp(server->start_time) + "\",\n";
   body +=            "  \"thread_count\": " + std::to_string(server->get_thread_count()) + ",\n";
   body +=            "  \"total_requests\": " + std::to_string(server->total_requests) + ",\n";
   body +=            "  \"valid_requests\": " + std::to_string(server->valid_request_count) + ",\n";
