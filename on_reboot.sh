@@ -32,9 +32,5 @@ echo "Building server..." >> "$LOGFILE"
 cmake -B . -S .. >> "$LOGFILE" 2>&1
 cmake --build . >> "$LOGFILE" 2>&1
 
-# Restart the server service (needs sudo)
-echo "Restarting server service..." >> "$LOGFILE"
-sudo systemctl restart secure-serve.service >> "$LOGFILE" 2>&1
-
 echo "=== Reboot script completed at $(date) ===" >> "$LOGFILE"
 echo "" >> "$LOGFILE"
