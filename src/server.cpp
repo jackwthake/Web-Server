@@ -125,8 +125,86 @@ static std::string format_uptime(time_t uptime_seconds) {
   return result;
 }
 
+// Get number of rate limited requests from IP log table
+static int get_rate_limited_count(const https_server::ip_log_table_t &ip_log_table, int threshold) {
+  int total_count = 0;
+  for (const auto &entry : ip_log_table) {
+    int entry_req_count = entry.second.first.load();
+    total_count += entry_req_count >= threshold ? entry_req_count - threshold : 0;
+  }
+
+  return total_count;
+}
+
+// Cull entries from the IP log table that are older than the threshold
+static void cull_ip_log_table(https_server::ip_log_table_t &ip_log_table, time_t current_time, time_t threshold) {
+  for (auto it = ip_log_table.begin(); it != ip_log_table.end(); ) {
+    time_t last_request_time = it->second.second.load();
+    if (current_time - last_request_time > threshold) {
+      it = ip_log_table.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+// Log the IP log table to a CSV file
+static void log_ip_table_csv(const https_server::ip_log_table_t &ip_log_table, const std::string &log_path) {
+  log_info("SERVER: Writing IP log table to CSV at path: %s with %zu entries", log_path.c_str(), ip_log_table.size());
+
+  std::ofstream log_file(log_path, std::ios::out | std::ios::trunc);
+  if (!log_file.is_open()) {
+    log_info("ERROR: Unable to open IP log file at path: %s", log_path.c_str());
+    return;
+  }
+
+  log_file << "IP Address,Request Count,Last Request Timestamp,Last Request Time\n";
+  for (const auto &entry : ip_log_table) {
+    time_t timestamp = entry.second.second.load();
+    char time_buffer[32];
+    std::strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", std::localtime(&timestamp));
+
+    log_file << entry.first << ","
+             << entry.second.first.load() << ","
+             << timestamp << ","
+             << time_buffer << "\n";
+  }
+
+  log_file.close();
+  log_info("SERVER: Successfully wrote IP log CSV to %s", log_path.c_str());
+}
+
+/*****************************
+ * Request handling functions
+******************************/
+
+// Check if an IP address is rate limited based on the log table
+static bool is_rate_limited(https_server::ip_log_table_t &ip_log_table, const std::string &ip_address, unsigned long max_requests, time_t time_window) {
+  time_t current_time = time(nullptr);
+  auto &entry = ip_log_table[ip_address];
+
+  std::atomic<unsigned long> &request_count = entry.first;
+  std::atomic<time_t> &last_request_time = entry.second;
+
+  // Atomically check and reset if outside time window
+  time_t last_time = last_request_time.load();
+  if (current_time - last_time > time_window) {
+    // Attempt to atomically update the timestamp
+    if (last_request_time.compare_exchange_strong(last_time, current_time)) {
+      // We won the race - reset the counter to 1 (this request)
+      request_count.store(1);
+      return false; // Not rate limited on reset
+    }
+    // Someone else reset it, fall through to increment
+  }
+
+  // Increment and check if over limit
+  unsigned long new_count = request_count.fetch_add(1) + 1;
+  return new_count > max_requests;
+}
+
 // Handle the /status endpoint, returning server statistics in JSON format
-static void handle_status_endpoint(const https_server *server, std::string &response, struct in_addr &client_addr) {
+void handle_status_endpoint(const https_server *server, std::string &response, struct in_addr &client_addr) {
   // Get system info
   struct utsname sys_info;
   uname(&sys_info);
@@ -143,7 +221,8 @@ static void handle_status_endpoint(const https_server *server, std::string &resp
   body +=            "  \"thread_count\": " + std::to_string(server->get_thread_count()) + ",\n";
   body +=            "  \"total_requests\": " + std::to_string(server->total_requests) + ",\n";
   body +=            "  \"valid_requests\": " + std::to_string(server->valid_request_count) + ",\n";
-  body +=            "  \"successful_requests\": " + std::to_string(server->successful_request_count) + "\n";
+  body +=            "  \"successful_requests\": " + std::to_string(server->successful_request_count) + ",\n";
+  body +=            "  \"rate_limited_requests\": " + std::to_string(get_rate_limited_count(server->ip_log_table, std::get<int>(server->get_config_value("rate_limit_max_requests", 100)))) + "\n";
   body +=            "}\n";
 
   add_response_code(response, 200, "OK");
@@ -156,10 +235,6 @@ static void handle_status_endpoint(const https_server *server, std::string &resp
 
   log_info("SERVER: INCOMING CONNECTION: %12s GET /status -> 200 OK", inet_ntoa(client_addr));
 }
-
-/*****************************
- * Request handling functions
-******************************/
 
 //  handles one get request, querying the router, building an adequate response
 static void handle_get_request(const https_server *server, std::string &response, std::string &path, struct in_addr &client_addr) {
@@ -332,15 +407,31 @@ void https_server::main_loop() {
   struct sockaddr_in client_addr;
   socklen_t client_len = sizeof(client_addr);
 
+  int last_culled = 0;
+
   for (;;) {
     // Accept incoming connections
     int client_fd = accept(this->socket_fd, (struct sockaddr*)&client_addr, &client_len); /* blocks until request */
     this->total_requests++; // increment total requests on every connection attempt
 
     // Cull log file every 100 requests if it exceeds max size
-    if (this->total_requests % 100 == 0) {
+    if (this->total_requests.load() - last_culled >= 100) {
       cull_log_file(std::get<int>(this->get_config_value("log_max_size", 52428800))); // default 50MB
-      cull_log_file(std::get<int>(this->get_config_value("log_max_size", 52428800)), "./logs/reboot.log");
+      cull_log_file(std::get<int>(this->get_config_value("log_max_size", 52428800)), "../logs/reboot.log");
+
+      cull_ip_log_table(this->ip_log_table, time(nullptr), std::get<int>(this->get_config_value("ip_log_cull_threshold", 3600))); // default 1 hour
+      log_ip_table_csv(this->ip_log_table, "../logs/ip_log.csv");
+
+      last_culled = this->total_requests.load();
+    }
+
+    // Check rate limiting (this also increments the IP table counter)
+    if (is_rate_limited(this->ip_log_table, inet_ntoa(client_addr.sin_addr),
+                        std::get<int>(this->get_config_value("rate_limit_max_requests", 100)),
+                        std::get<int>(this->get_config_value("rate_limit_time_window", 60)))) {
+      log_info("SERVER: INCOMING CONNECTION: %12s - Rate limit exceeded, dropping connection.", inet_ntoa(client_addr.sin_addr));
+      close(client_fd);
+      continue;
     }
 
     if (client_fd < 0) {
@@ -508,7 +599,7 @@ void https_server::populate_config() {
 }
 
 // Helper to get config value with default
-https_server::config_value_t https_server::get_config_value(const std::string &key, const config_value_t &default_value) {
+https_server::config_value_t https_server::get_config_value(const std::string &key, const config_value_t &default_value) const {
   auto it = this->config.find(key);
   
   if (it != this->config.end()) {
