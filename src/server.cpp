@@ -20,7 +20,7 @@
 #include "util/pool.hpp"
 #include "util/log.hpp"
 
-#define SERVER_VERSION "1.0.0"
+#define SERVER_VERSION "1.1.0"
 #define MAX_LINE 4096
 
 /*****************************

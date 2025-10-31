@@ -2,24 +2,44 @@
 
 [![CodeQL](https://github.com/jackwthake/Web-Server/actions/workflows/codeql.yml/badge.svg)](https://github.com/jackwthake/Web-Server/actions/workflows/codeql.yml)
 
-A high-performance, lightweight HTTPS web server implemented in modern C++17. Features secure TLS/SSL encryption, concurrent request handling via thread pooling, and efficient resource management using smart pointers and RAII principles.
+![Server Output](public/img/server_output.png)
+*Server logs showing thread pool initialization, route loading, and real-time request handling*
+
+A high-performance, lightweight HTTPS web server implemented in modern C++17. Features secure TLS/SSL encryption, concurrent request handling via thread pooling, rate limiting, automatic log rotation, and efficient resource management using smart pointers and RAII principles.
 
 ## Overview
 
-This project demonstrates advanced C++ systems programming concepts including network programming, multi-threading, SSL/TLS cryptography, and modern memory management techniques. Built from the ground up using POSIX sockets and OpenSSL, it showcases low-level understanding of network protocols and concurrent programming patterns.
+This project demonstrates advanced C++ systems programming concepts including network programming, multi-threading, SSL/TLS cryptography, lock-free concurrency, and modern memory management techniques. Built from the ground up using POSIX sockets and OpenSSL, it showcases low-level understanding of network protocols, concurrent programming patterns, and production-ready operational features including rate limiting, automatic log rotation, and real-time monitoring.
 
 ## Key Features
 
 ### Security
 - **TLS/SSL Encryption**: Full HTTPS support using OpenSSL 3.0+
+- **Rate Limiting**: IP-based request throttling with configurable limits (100 req/60s default)
 - **Whitelist Routing**: Pre-loaded route table prevents path traversal attacks
 - **Secure Certificate Handling**: Proper key management with automatic resource cleanup
 - **Exception-Based Error Handling**: Proper cleanup and resource management during failures
+- **Input Validation**: Robust handling of malformed and empty requests
 
 ### Performance
 - **Thread Pool Architecture**: Dynamic worker thread pool scaling with hardware concurrency
+- **Lock-Free Rate Limiting**: Atomic operations with compare-and-swap for thread-safe IP tracking
+- **Pre-Loaded Content**: Zero disk I/O per request - all files loaded into memory at startup
 - **Non-blocking I/O**: Efficient request handling using condition variables and mutexes
 - **Resource Management**: Smart pointers with custom deleters for zero-leak guarantee
+
+### Monitoring & Operations
+- **Real-Time Metrics**: `/status` endpoint with JSON statistics (uptime, requests, rate limits)
+- **Automatic Log Rotation**: Log files automatically culled at 50MB to prevent disk exhaustion
+- **IP Tracking & Analytics**: CSV export of IP access patterns with request counts and timestamps
+- **Comprehensive Logging**: Thread-safe logging to console and file with automatic timestamps
+- **Statistics Tracking**: Atomic counters for total, valid, successful, and rate-limited requests
+
+### Configuration
+- **File-Based Configuration**: `secure-serve.conf` for all server parameters
+- **Configurable Thread Pool**: Adjust worker thread count or auto-scale to CPU cores
+- **Flexible Rate Limits**: Customize time windows and request thresholds per IP
+- **Routing Configuration**: Separate `endpoints.conf` for URL-to-file mappings
 
 ## Architecture
 
@@ -27,36 +47,54 @@ This project demonstrates advanced C++ systems programming concepts including ne
 
 ```
 1. Startup
-   ├─> Routes loaded from routing.conf into memory
+   ├─> Configuration loaded from secure-serve.conf
+   ├─> Routes loaded from endpoints.conf into memory
    ├─> SSL context initialized with certificates
-   └─> Thread pool created matching CPU core count
+   └─> Thread pool created (configurable or auto-scaled to CPU cores)
 
 2. Client Connection
    ├─> TCP socket accepted on port 443 (HTTPS)
-   └─> SSL/TLS handshake performed
+   ├─> Rate limiting check (lock-free atomic operations)
+   │   ├─> If rate limited: drop connection and log
+   │   └─> If allowed: continue processing
+   ├─> SSL/TLS handshake performed
+   └─> Connection validated
 
 3. Request Handling
    ├─> Job queued to thread pool
    ├─> Available worker thread picks up job
-   └─> Request parsed and routed
+   ├─> Request parsed and validated
+   └─> Method and path extracted
 
 4. Response Generation
    ├─> Route matched against pre-loaded routing table
-   ├─> File content retrieved from memory and MIME type set
-   └─> HTTP response constructed
+   ├─> File content retrieved from memory (zero disk I/O)
+   ├─> MIME type set from routing configuration
+   ├─> HTTP response constructed (200, 404, or 405)
+   └─> Statistics updated (atomic counters)
 
 5. Cleanup
    ├─> Response sent over SSL connection
-   ├─> SSL session terminated (SSL_shutdown)
-   └─> Resources automatically freed (RAII)
+   ├─> SSL session terminated (bidirectional SSL_shutdown)
+   ├─> Resources automatically freed (RAII)
+   └─> IP log table updated with request timestamp
+
+6. Periodic Maintenance (every 100 requests)
+   ├─> Log files culled if exceeding 50MB
+   ├─> IP log table culled (entries older than 1 hour)
+   └─> IP access data exported to CSV
 ```
 
 ### Core Components
 
-- **`https_server`**: Main server class managing SSL context, socket lifecycle, and routing
+- **`https_server`**: Main server class managing SSL context, socket lifecycle, routing, and statistics
 - **`thread_pool`**: Worker thread manager with condition variable synchronization
 - **`job_t`**: Request job structure passed to worker threads
 - **Routing System**: Hash-map based URL-to-file routing with pre-loaded content for security
+- **Rate Limiter**: Lock-free IP-based request throttling using atomic compare-and-swap operations
+- **IP Log Table**: Thread-safe tracking of per-IP request counts and timestamps with automatic CSV export
+- **Statistics Counters**: Atomic counters for real-time metrics (total, valid, successful, rate-limited requests)
+- **Configuration Manager**: `std::variant`-based config system supporting both string and integer values
 
 ## Deployment
 
@@ -163,9 +201,36 @@ curl -k https://localhost
 
 ## Configuration
 
+### Server Configuration
+
+Server settings are defined in `secure-serve.conf` with `key=value` format:
+
+```bash
+# Server configuration
+server_port=443
+backlog=1000
+thread_pool_size=8                          # 0 = auto-scale to CPU cores
+router_config_path=./public/endpoints.conf
+domain=jackthake.com
+
+# Logging configuration
+log_max_size=52428800                       # 50MB in bytes
+
+# SSL configuration
+ssl_cert_path=./secret/server.crt
+ssl_key_path=./secret/server.key
+
+# Rate limiting configuration
+rate_limit_time_window=60                   # Time window in seconds
+rate_limit_max_requests=100                 # Max requests per IP per window
+ip_log_cull_threshold=3600                  # Remove IPs inactive for 1 hour
+```
+
+All configuration values have sensible defaults, so the config file is optional.
+
 ### Routing Configuration
 
-Routes are defined in `routing.conf` with the format:
+Routes are defined in `public/endpoints.conf` with the format:
 ```
 <url_path> <file_path> <mime_type>
 ```
@@ -179,7 +244,30 @@ Example:
 /404 ./public/404.html text/html
 
 /css/style.css ./public/css/style.css text/css
-/js/app.js ./public/js/app.js application/javascript
+/img/logo.png ./public/img/logo.png image/png
+```
+
+### Status Endpoint
+
+The server provides a `/status` endpoint that returns JSON metrics:
+
+```bash
+curl https://localhost/status
+```
+
+Response:
+```json
+{
+  "uptime": "2d 5h 30m 15s",
+  "platform": "Linux",
+  "os_version": "Amazon Linux 2",
+  "server_version": "1.0.0",
+  "thread_count": 8,
+  "total_requests": 15847,
+  "valid_requests": 15720,
+  "successful_requests": 15650,
+  "rate_limited_requests": 127
+}
 ```
 
 ### SSL Certificates
@@ -230,8 +318,10 @@ openssl req -x509 -newkey rsa:4096 -keyout secret/server.key -out secret/server.
 ### Concurrency
 
 - **Thread-Safe**: Mutex-protected job queue with condition variables
+- **Lock-Free Rate Limiting**: Atomic operations with compare-and-swap for race-free IP tracking
+- **Atomic Statistics**: Thread-safe counters for request tracking without locks
 - **Deadlock-Free**: Scoped locking patterns with RAII
-- **Scalable**: Thread pool size dynamically matches CPU core count
+- **Scalable**: Thread pool size dynamically matches CPU core count or configured value
 
 ### Memory Management
 
@@ -243,15 +333,38 @@ openssl req -x509 -newkey rsa:4096 -keyout secret/server.key -out secret/server.
 
 ### Logging
 
-Server logs are written to `server.log` with timestamps:
+Server logs are written to `logs/server.log` with automatic timestamps:
 ```
-[10/29/25 11:05:22]: THREAD POOl: Creating thread pool of size: 4
+[10/29/25 11:05:22]: THREAD POOL: Creating thread pool of size: 8
 [10/29/25 11:05:22]: ROUTER: Attached route / to file path ./public/index.html.
 [10/29/25 11:05:22]: ROUTER: Attached route /404 to file path ./public/404.html.
 [10/29/25 11:05:22]: ROUTER: Attached route /css/style.css to file path ./public/css/style.css.
 [10/29/25 11:05:22]: SERVER: Server intialised using file descriptor 4, on port 443
-
+[10/29/25 11:05:45]: SERVER: INCOMING CONNECTION:   192.0.2.50 GET / -> 200 OK
+[10/29/25 11:05:46]: SERVER: INCOMING CONNECTION:   192.0.2.50 GET /css/style.css -> 200 OK
+[10/29/25 11:06:22]: SERVER: INCOMING CONNECTION:  203.0.113.45 - Rate limit exceeded, dropping connection.
 ```
+
+**Features:**
+- **Thread-Safe**: Mutex-protected logging prevents garbled output
+- **Automatic Rotation**: Logs culled to 50MB every 100 requests to prevent disk exhaustion
+- **CSV Export**: IP access data exported to `logs/ip_log.csv` with timestamps and request counts
+- **Multiple Log Files**: Separate logs for server operations, deployments, and certificate renewals
+
+### IP Tracking CSV
+
+The server exports IP access data to `logs/ip_log.csv`:
+
+| IP Address | Request Count | Last Request Timestamp | Last Request Time |
+|------------|---------------|------------------------|-------------------|
+| 192.0.2.50 | 45 | 1730398400 | 2024-10-31 09:13:20 |
+| 198.51.100.42 | 101 | 1730398460 | 2024-10-31 09:14:20 |
+
+This data is useful for:
+- Analyzing traffic patterns
+- Identifying aggressive clients
+- Understanding geographic distribution
+- Detecting potential attacks
 
 ## License
 
