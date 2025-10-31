@@ -10,6 +10,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 set(CMAKE_CXX_FLAGS_DEBUG "-ggdb")
 
+# Get git commit hash
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
+# If not in a git repo, set to "unknown"
+if(NOT GIT_COMMIT_HASH)
+    set(GIT_COMMIT_HASH "unknown")
+endif()
+
 # Find required packages
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
@@ -29,6 +43,11 @@ add_executable(serve ${SOURCES})
 target_include_directories(serve PRIVATE
     ${CMAKE_SOURCE_DIR}/src
     ${OPENSSL_INCLUDE_DIR}
+)
+
+# Add compile definitions
+target_compile_definitions(serve PRIVATE
+    GIT_COMMIT_HASH="${GIT_COMMIT_HASH}"
 )
 
 # Link libraries
@@ -69,3 +88,4 @@ install(DIRECTORY public DESTINATION bin)
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ standard: ${CMAKE_CXX_STANDARD}")
 message(STATUS "OpenSSL version: ${OPENSSL_VERSION}")
+message(STATUS "Git commit: ${GIT_COMMIT_HASH}")

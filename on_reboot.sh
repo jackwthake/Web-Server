@@ -12,7 +12,7 @@ cd "$HOME/secure-serve" || exit 1
 
 # download any updates from git (no sudo needed as ec2-user)
 echo "Pulling latest code from GitHub..." >> "$LOGFILE"
-git pull origin main >> "$LOGFILE" 2>&1
+git pull --ff-only origin main >> "$LOGFILE" 2>&1
 
 # rebuild and run server
 cd build || exit 1

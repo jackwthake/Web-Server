@@ -20,8 +20,13 @@
 #include "util/pool.hpp"
 #include "util/log.hpp"
 
-#define SERVER_VERSION "1.1.0"
+#define SERVER_VERSION "1.1.1"
 #define MAX_LINE 4096
+
+// Git commit hash is defined by CMake at build time
+#ifndef GIT_COMMIT_HASH
+#define GIT_COMMIT_HASH "unknown"
+#endif
 
 /*****************************
  * Static helper functions
@@ -218,6 +223,8 @@ void handle_status_endpoint(const https_server *server, std::string &response, s
   body +=            "  \"platform\": \"" + std::string(sys_info.sysname) + "\",\n";
   body +=            "  \"os_version\": \"" + os_name + "\",\n";
   body +=            "  \"server_version\": \"" + std::string(SERVER_VERSION) + "\",\n";
+  body +=            "  \"git_commit\": \"" + std::string(GIT_COMMIT_HASH) + "\",\n";
+  body +=            "  \"last_updated\": \"" + std::string(__DATE__) + " " + std::string(__TIME__) + "\",\n";
   body +=            "  \"thread_count\": " + std::to_string(server->get_thread_count()) + ",\n";
   body +=            "  \"total_requests\": " + std::to_string(server->total_requests) + ",\n";
   body +=            "  \"valid_requests\": " + std::to_string(server->valid_request_count) + ",\n";
